@@ -1,0 +1,19 @@
+aws_liveness_for_flutter
+Copyright 2026 Mertcan
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Unofficial. Not affiliated with, endorsed or sponsored by Amazon Web Services.
+
+Amazon Web Services, AWS, Amazon Rekognition, AWS Amplify and related marks are
+trademarks of Amazon.com, Inc. or its affiliates. All other trademarks are the
+property of their respective owners. These names are used here only to describe
+compatibility and do not imply any endorsement.
+
+This plugin depends on, but does not redistribute, the following third-party
+software, which is licensed under the Apache License, Version 2.0:
+
+- AWS Amplify UI Face Liveness for Android
+  (https://github.com/aws-amplify/amplify-ui-android)
+- AWS Amplify UI Face Liveness for Swift
+  (https://github.com/aws-amplify/amplify-ui-swift-liveness)

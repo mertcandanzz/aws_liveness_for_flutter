@@ -208,9 +208,7 @@ jobs:
       - run: flutter config --enable-swift-package-manager
       - name: Build the example for the simulator
         working-directory: example
-        run: |
-          flutter pub get
-          flutter build ios --simulator --debug --no-codesign
+        run: bash ../.github/scripts/ios_spm_build.sh
       - name: Run RunnerTests on a simulator with FaceLiveness linked
         working-directory: example
         env:

@@ -1,0 +1,41 @@
+# Enable only after the owner approves the first manual publication and pub.dev setup.
+name: Publish to pub.dev
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  # Do not interrupt a publication that has already started.
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Check the tag and release source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require the exact pubspec version and a commit on main
+        shell: bash
+        run: |
+          python3 .github/scripts/ci_gate.py release pubspec.yaml
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+  publish:
+    needs: version
+    permissions:
+      contents: read
+      id-token: write
+    # Official workflow owns checkout, SDK setup, dry-run and publication (no stored token).
+    # Reusable-workflow callers cannot set timeout-minutes; upstream owns that job.
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      environment: pub.dev

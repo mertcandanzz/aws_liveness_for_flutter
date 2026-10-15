@@ -319,8 +319,15 @@ subclasses with `is` first, then handles the generic cases [S2].
 | … `InvalidSignatureException` | `invalidSignature` |
 | … `UnrecognizedClientException` | `accessDenied` |
 | generic, message fallback when names are obfuscated: `Failed since the user made too many requests…` / `Service is currently unavailable.` / `Invalid signature` / `Unrecognized client` | `throttled` / `serviceUnavailable` / `invalidSignature` / `accessDenied` |
+| generic `The camera failed to open within the allowed time limit.` / `A <front\|back> facing camera is required but no … facing camera detected.` | `cameraUnavailable` |
+| generic `Failed to initialize video components required for Liveness check.` | `videoEncodingFailed` |
 | generic `Failed to start the face liveness session.` | `credentialsUnavailable` if the flag is set (rule 3), otherwise `unknown` |
 | anything else | `unknown` |
+
+The camera and video-initialisation rows were added during implementation from the SDK
+sources (`LivenessCoordinator`, `ChallengeView` at `release_liveness_v1.12.0`). In code,
+rule 2 comes first: a plugin-initiated end has already been delivered by `SessionRegistry`,
+and `ErrorMapper.map` also returns it when one is passed in.
 
 `nativeDetails.code` holds the exception's simple class name, plus the cause's when there
 is one (for example `PredictionsException/ThrottlingException`). `nativeDetails.message`
@@ -437,9 +444,13 @@ second line of defence.
    - iOS: the SDK shows `RotateDeviceView` in landscape. During a check this ends with
      `sessionInterrupted`; cancelling on that screen gives `LivenessCancelled(user)`.
    - Tablets behave the same.
-8. **Android process death.** If `LivenessActivity` is recreated with
-   `savedInstanceState != null`, or for an attempt the registry does not know, it finishes
-   immediately without a result: the Dart side is gone.
+8. **Android process death.** If `LivenessActivity` starts for an attempt the registry does
+   not know (process death, or an attempt that already ended), it finishes immediately
+   without a result: the Dart side is gone. If it is recreated (`savedInstanceState != null`)
+   while the registry still holds the attempt, the Dart side is still waiting, so the attempt
+   ends with `sessionInterrupted` instead of hanging; the SDK session state is lost anyway.
+   `onDestroy` delivers `sessionInterrupted` for any attempt that is still open, so every
+   way out of the Activity produces exactly one result.
 9. **Engine detach.** The owning engine's attempt is cancelled, its UI closed and its
    result dropped. Pending credential requests fail.
 10. **No foreground UI.** If Android has no attached Activity, or iOS finds no view
@@ -462,6 +473,10 @@ Package `io.github.mertcandanzz.aws_liveness_for_flutter`, under `android/src/ma
     the Activity Result API before composing;
   - composes `MaterialTheme(colorScheme) { FaceLivenessDetector(..., cancelButton = { onCancel -> /* capture */ LivenessCancelButton(onCancel) }) }`;
   - a `BackHandler` calls the captured `onCancel`;
+  - the SDK composes the `cancelButton` slot only while the challenge runs. During the start
+    view and the connecting phase the plugin draws the same cancel button itself, which ends
+    the attempt with `LivenessCancelled(user)`;
+  - the Intent carries only a process-unique attempt token; the request stays in memory;
   - implements the `onStop` and `onDestroy` rules from §6.
 - `CameraPermissionActivity.kt`: translucent, with no UI. Used only by
   `requestCameraPermission()`, so the host never has to forward permission results.
@@ -538,7 +553,7 @@ Under `ios/aws_liveness_for_flutter/Sources/aws_liveness_for_flutter/`:
 
 ## 9. Resolved and open questions
 
-### 9.1 Compose compiler: decided, CI evidence pending
+### 9.1 Compose compiler: decided, verified locally; CI matrix pending
 
 - Since Kotlin 2.0 the Compose compiler ships with Kotlin, as the Gradle plugin
   `org.jetbrains.kotlin.plugin.compose`, versioned with Kotlin [K1].
@@ -560,25 +575,67 @@ Under `ios/aws_liveness_for_flutter/Sources/aws_liveness_for_flutter/`:
 - Minimum host Kotlin: 2.1.0. The Amplify artifacts depend on `kotlin-stdlib` 2.2.0 [M1],
   and the Kotlin compiler reads metadata at most one version ahead. Tested baseline:
   2.2.20 (the Flutter 3.38 template).
-- Evidence required: the CI Android job builds a debug APK and an R8 release APK against
-  host Kotlin 2.1.x, 2.2.x and the latest version.
+- Implementation finding: both buildscript artifacts must use the host's version. With
+  `kotlin-gradle-plugin` pinned at 2.2.20, its BOM upgraded the Compose plugin to 2.2.20
+  under a host on 2.1.0, and compilation failed with "Multiple values are not allowed for
+  plugin option androidx.compose.compiler.plugins.kotlin:sourceInformation". The plugin
+  therefore reads the host's Kotlin Gradle plugin version (`project.properties` in the jar
+  that provides `KotlinAndroidPluginWrapper` on the parent class loader) and requests that
+  version for both artifacts. It falls back to 2.2.20 when the host loads no Kotlin plugin.
+- Local evidence (2026-10-15, Windows, Flutter 3.38.7, AGP 8.11.1, Gradle 8.14; the example's
+  `org.jetbrains.kotlin.android` version switched temporarily and reverted):
 
-### 9.2 AAR minimums: open, measured in implementation
+  | Host Kotlin | Result |
+  |---|---|
+  | 2.0.21 | fails fast: "aws_liveness_for_flutter needs Kotlin 2.1.0 or newer, but the app uses Kotlin 2.0.21. …" |
+  | 2.1.0 | `flutter build apk --debug` passes |
+  | 2.2.20 (template) | debug APK and R8 release APK (`flutter build apk --release`) pass |
+  | 2.3.0 | debug APK passes. The Flutter 3.38 app template itself fails on 2.3 (`kotlinOptions.jvmTarget` is an error); the test moved the example app to `compilerOptions` temporarily. That is a host-template issue, not a plugin one |
 
-- Known: `liveness` 1.12.0 depends on `compose-bom` 2026.03.00, `aws-predictions` 2.41.0
-  and `kotlin-stdlib` 2.2.0, and was built with Gradle 8.13 [M1]. Plugin `compileSdk` is
-  36; the example uses AGP 8.11.1 and Gradle 8.14.
-- To measure: run `checkDebugAarMetadata` and read the `minCompileSdk`,
-  `minAndroidGradlePluginVersion` and `coreLibraryDesugaringEnabled` entries from the
-  `aar-metadata.properties` of `liveness`, `aws-predictions`, `aws-core` and the Compose
-  artifacts.
-- Expected: Amplify needs core library desugaring in the host app module [A1]. If
-  confirmed, this becomes a documented one-time line in the app's `build.gradle`. It does
-  not touch `MainActivity`.
+- Still required: the CI Android job repeats this matrix.
 
-### 9.3 Running without `Amplify.configure()` on Android: open, verified on a device
+### 9.2 AAR minimums: measured
 
-### 9.4 R8 release build and error mapping: open, verified on a device
+Measured on 2026-10-15 with `:app:checkDebugAarMetadata` and the `aar-metadata.properties`
+of all 247 artifacts on the example's `releaseRuntimeClasspath`:
+
+- `minCompileSdk`: 36 at most (`com.squareup.okhttp3:okhttp-android` 5.4.0, pulled in by
+  Amplify). Flutter 3.38's default `flutter.compileSdkVersion` is 36, so template apps
+  already comply.
+- `minAndroidGradlePluginVersion`: 8.6.0 at most (`androidx.core` 1.16.0, Compose UI 1.10.5,
+  `androidx.transition` 1.6.0).
+- `coreLibraryDesugaringEnabled=true`, `desugar_jdk_libs` ≥ 1.2.0: `com.amplifyframework`
+  `core`, `common-core`, `aws-core` and `aws-predictions` 2.41.0. Without it the app fails
+  `checkDebugAarMetadata`. **Host requirement** (app module only, no `MainActivity` change),
+  configured in the example app:
+
+  ```kotlin
+  android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
+  dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5") }
+  ```
+
+- `minSdk`: 24, the same as `liveness` 1.12.0.
+
+### 9.3 Running without `Amplify.configure()` on Android: source-checked, device check pending
+
+- Source evidence: with a non-null `credentialsProvider`, `AWSPredictionsPlugin
+  .startFaceLivenessSession` converts it with `convertToSdkCredentialsProvider` and never
+  creates the Cognito provider. The remaining `Amplify.*` uses in the liveness path are
+  `Amplify.Logging` loggers, which work without configuration.
+- The credentials provider is resolved on `Dispatchers.Main` and again on the clock-skew
+  reconnect (`LivenessWebSocket.start`), which matches §6.3.
+- Pending: a real session on a device (needs P5 `backend-express`).
+
+### 9.4 R8 release build and error mapping: build verified, device check pending
+
+- `flutter build apk --release` (R8 on) passes with the plugin's `consumer-rules.pro`; no
+  extra `-dontwarn` rules were needed.
+- `mapping.txt` keeps the names that `ErrorMapper` reads: `FaceLivenessDetectionException`
+  and all its nested classes (including the internal
+  `FaceInOvalMatchExceededTimeLimitException`), `PredictionsException`, and
+  `com.amplifyframework.predictions.aws.models.liveness.*` (for example
+  `ThrottlingException`, `ValidationException`, `InvalidSignatureException`).
+- Pending: error mapping observed on a device in a release build.
 
 ### 9.5 FlutterFramework SPM dependency: decided for 0.1.0, not declared
 

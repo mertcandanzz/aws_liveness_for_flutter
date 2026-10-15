@@ -95,3 +95,28 @@ was not changed; reset it to 0 at the end of P8, not at the end of this step.
 Backend/AWS checks, real-face checks, all remaining manual rows and every iOS device
 row remain PENDING. Step 1 does not establish release/R8 behaviour or an end-to-end
 liveness decision. Local evidence: `build/qa-p8-step1/` (gitignored).
+
+### P8 step 2: AWS preflight blocked (2026-10-15)
+
+Source revision: `768d54a5c34c10a7ec533e006357a9c34003cb34` on `main`.
+The intended device is the Galaxy S25 Ultra / SM-S938B / Android 17 from step 1;
+it was not present in the current ADB device list, so its OS was not re-read.
+
+The authorized local configuration contains AWS access credentials but no IAM role
+ARN for the backend's `LIVENESS_CREDENTIALS_ROLE_ARN`. The credentials endpoint needs
+an existing, assumable role with `rekognition:StartFaceLivenessSession` permission
+and a trust policy allowing the backend caller. No IAM resource was created.
+
+| Check | Result | Reason |
+|---|---|---|
+| A3: unknown session | PENDING — not run | No assumable role configured; device not detected |
+| A4: invalid/expired credentials | PENDING — not run | Backend and device prerequisites unavailable |
+| SDK operation without `Amplify.configure()` against AWS | PENDING — not run | No AWS request made |
+| M1/M2: real-face checks and server decision | PENDING — not run | Await role, device and guided user input |
+| M18: release/R8 with real AWS | PENDING — not run | Needs HTTPS; release rejects HTTP loopback |
+
+The backend was not started, no demo token or ADB reverse was created, and no
+credentials were written to files or logs. No device settings were changed.
+P8 remains in progress; the end-of-P8 reset of `stay_on_while_plugged_in` is still
+pending. PR #5 was merged before this preflight; post-merge CI run `38741987057`
+was scheduled and is separate from the completed PR validation.

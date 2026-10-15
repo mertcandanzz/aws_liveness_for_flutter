@@ -515,47 +515,113 @@ Package `io.github.mertcandanzz.aws_liveness_for_flutter`, under `android/src/ma
 
 ## 8. iOS host
 
-Under `ios/aws_liveness_for_flutter/Sources/aws_liveness_for_flutter/`:
+Under `ios/aws_liveness_for_flutter/Sources/aws_liveness_for_flutter/`. The SDK symbols the
+plugin uses, with their sources, are listed in `doc/ios-sdk-surface.md`.
 
-- `AwsLivenessForFlutterPlugin.swift`: keeps a weak reference to the registrar, sets up
-  the host API and the Flutter API, calls `addApplicationDelegate`, and tears everything
-  down in `detachFromEngine(for:)`.
-- `LivenessHostApiImpl.swift`.
-- `SessionCoordinator.swift`: a `@MainActor` process-wide single slot with an
-  exactly-once `finish(_:)`.
-- `Presenter.swift`: finding the view controller to present from:
-  - first `registrar.viewController` (available since Flutter 3.38 [F4]), then its
-    topmost presented controller, skipping any that are being dismissed;
-  - fallback: the key window of a foreground-active `UIWindowScene` from
-    `UIApplication.shared.connectedScenes`, then its topmost controller;
-  - never `UIApplication.keyWindow` or the app delegate's `window`, which is `nil` under
-    UIScene.
-- `LivenessViewController.swift` (inside `#if canImport(FaceLiveness)`):
-  - a `UIHostingController` with `.fullScreen` presentation;
-  - `overrideUserInterfaceStyle` when the theme mode is forced;
-  - an unexpected `viewDidDisappear` gives `sessionInterrupted`.
-- `LivenessContainer.swift`: `FaceLivenessDetectorView(sessionID:credentialsProvider:region:disableStartView:challengeOptions:isPresented:onCompletion:)` with `.faceLivenessDetectorTheme(_:)`.
-- `PluginCredentialsProvider.swift`:
-  - conforms to `AWSCredentialsProvider`;
-  - bridges `fetchCredentials` to async with a checked continuation and a timeout;
-  - sets the credentials-failure flag;
-  - returns a type conforming to `AWSTemporaryCredentials`.
-- `ErrorMapper.swift`: a pure function on the integer code and the flag. It compiles
-  without `FaceLiveness`, so XCTest runs in both the SPM and CocoaPods jobs.
-- `CameraPermission.swift` and `ThemeMapper.swift` (colour overrides are dynamic
-  `UIColor`s when the mode is `system`).
+Status (2026-10-15): implemented, **not compiled against UIKit, Flutter or FaceLiveness
+yet**. No macOS host was available. `tool/ios_linux_check.sh` parses every file with
+`swiftc -parse` and compiles and unit-tests the platform-free part in the Swift Linux image
+(Swift 5.10 and 6.1). The iOS build and XCTest run in the `ios-spm` and `ios-cocoapods` CI
+jobs.
+
+Layering: the platform-free core is testable with fakes and the adapters are thin.
+
+- Core (Foundation only; also compiled on Linux):
+  - `LivenessHost.swift`: the host for one engine. It runs the availability and slot
+    checks, the camera pre-check, presentation and cancel. UIKit, AVFoundation and
+    FaceLiveness reach it through `CameraAccess`, `LivenessPresenting` and
+    `SettingsOpening`.
+  - `SessionCoordinator.swift`: a `@MainActor` process-wide single slot (`ActiveAttempt`)
+    with an exactly-once `finish(_:with:)`.
+    - When the UI is shown, the result is delivered from the dismissal completion, so the
+      next presentation starts cleanly. `dismissalGrace` (3 s) bounds that wait.
+    - `end(_:with:)` records the plugin-initiated end (rule 2).
+    - `detach(engine:)` drops an attempt without a result.
+    - End handlers fail pending credential requests at once.
+  - `CredentialsBroker.swift`:
+    - bridges `fetchCredentials(attemptId)` to `async` with a checked continuation;
+    - fails after `credentialsTimeoutMillis` + 5 s and as soon as the attempt ends;
+    - sets the credentials-failure flag;
+    - converts the reply into `PluginTemporaryCredentials`, whose description, debug
+      description and mirror are all redacted.
+  - `ErrorMapper.swift`: a pure function on the SDK error code (§4.2 rule order, §4.4
+    table).
+  - `CameraPermission.swift` (status table §3.5, pre-check §6.6), `Presenter.swift` (the
+    topmost-controller walk), `ThemeMapper.swift` (`ArgbColor`), `LivenessSDK.swift`,
+    `Outcomes.swift` and `MainThread.swift`.
+- Adapters:
+  - `AwsLivenessForFlutterPlugin.swift`:
+    - one instance per engine;
+    - sets up the host API and the Flutter API;
+    - `registrar.publish(plugin)`, so the engine calls `detachFromEngine(for:)`, which
+      tears down the channel and drops the engine's attempt;
+    - no `addApplicationDelegate`: the plugin needs no app delegate callbacks.
+  - `LivenessHostApiImpl.swift`: Pigeon handlers run on the platform (main) thread and
+    enter the main actor with `MainActor.assumeIsolated`. Every reply is a value.
+  - `SystemServices.swift`: AVFoundation camera access, the Settings app, and
+    `LivenessHost.system(...)`.
+  - `Presenter.swift` (UIKit part):
+    - `registrar.viewController` [F4] when its window is in a foreground scene, then its
+      topmost presented controller, skipping one that is being dismissed;
+    - otherwise the key window of a foreground `UIWindowScene` from
+      `UIApplication.shared.connectedScenes`;
+    - never `UIApplication.keyWindow` or the app delegate's `window`;
+    - "foreground" includes `foregroundInactive`: the scene is briefly inactive right
+      after the camera prompt closes.
+  - `LivenessViewController.swift` (inside `#if canImport(FaceLiveness)`):
+    - `SystemLivenessPresenter` looks the presenter up before it creates
+      `FaceLivenessDetectorView(sessionID:credentialsProvider:region:disableStartView:challengeOptions:isPresented:onCompletion:)`,
+      because the view's initialiser already starts the session;
+    - `isPresented` is `.constant(true)`. The plugin closes the UI itself, and real state
+      would re-run the initialiser, which starts a new session;
+    - the detector view is created once and stored in `LivenessContainer`, with
+      `.faceLivenessDetectorTheme(_:)`;
+    - `onCompletion` may arrive on a background queue and is moved to the main thread;
+    - `LivenessViewController` is a `UIHostingController` with `.fullScreen` and
+      `overrideUserInterfaceStyle` for forced theme modes. While visible, it reports
+      `sessionInterrupted` on `UIScene.didEnterBackgroundNotification` (its own scene),
+      `UIApplication.didEnterBackgroundNotification`, or a `viewDidDisappear` the plugin
+      did not cause;
+    - a close requested during the presentation animation waits for `viewDidAppear`.
+      Dismissal goes through the presenting controller, so it also removes anything the
+      SDK presented on top (its camera alert);
+    - if UIKit refuses the presentation (`presentingViewController` stays nil), the
+      result is `presenterUnavailable` instead of a hang;
+    - `PluginCredentialsProvider` conforms to `AWSCredentialsProvider` and holds no
+      credentials;
+    - `SdkError(FaceLivenessDetectionError)`: the SDK's `code` is internal, so the plugin
+      compares against the 20 public static cases (equality is by code).
+- Camera pre-check (§6.6) on iOS:
+  - `NSCameraUsageDescription` missing or blank: `missingCameraUsageDescription`, and
+    `requestAccess` is never called;
+  - `notDetermined`: the plugin prompts first;
+  - a denial (now or earlier) or `restricted`: `cameraPermissionPermanentlyDenied`,
+    because iOS cannot prompt again;
+  - no video device (the simulator): `cameraUnavailable` (`NoVideoDevice`) before any UI;
+  - `requestCameraPermission()` without a usage description returns the current status
+    without prompting.
 - Without `FaceLiveness` (CocoaPods builds):
   - `checkAvailability` returns `sdkUnavailable` and `start` returns
-    `LivenessFailed(sdkUnavailable)`;
+    `LivenessFailed(sdkUnavailable)` with `nativeDetails.code` `FaceLivenessNotLinked`;
   - the permission helpers still work.
-- `Package.swift`:
-  - add `.package(url: "https://github.com/aws-amplify/amplify-ui-swift-liveness", from: "1.5.1")`;
-  - add the target dependency `.product(name: "FaceLiveness", package: "amplify-ui-swift-liveness")`.
-- Podspec: unchanged, because `FaceLiveness` is not on CocoaPods.
-- Known SDK hazard: the SDK's view initialiser calls `try! FaceDetectorShortRange.Model()`,
-  which crashes if the bundled model cannot load, and the plugin cannot catch it. It is
-  documented, and a best-effort resource check in `checkAvailability` is evaluated during
-  implementation.
+- `Package.swift`: `.package(url: "https://github.com/aws-amplify/amplify-ui-swift-liveness", from: "1.5.1")`
+  and the target dependency `.product(name: "FaceLiveness", package: "amplify-ui-swift-liveness")`.
+  It pulls in `amplify-swift` from 2.60.2.
+- Podspec: unchanged, because `FaceLiveness` is not on CocoaPods. A CocoaPods app needs
+  `platform :ios, '15.0'` in its Podfile.
+- `PrivacyInfo.xcprivacy`: unchanged and accurate for the plugin's own code. The plugin
+  collects nothing, tracks nothing and uses no required-reason API. Video goes to AWS
+  through the SDK, which the app declares.
+- Known SDK hazard: `FaceLivenessDetectorView.init` calls `try! FaceDetectorShortRange.Model()`.
+  That loads `face_detection_short_range.mlmodelc` from the SDK's `Bundle.module` and
+  crashes if the model is missing; the plugin cannot catch it. Mitigation:
+  - before creating the view, the plugin searches the app bundle (four levels deep,
+    skipping `flutter_assets`) for the model;
+  - if the model is absent, `checkAvailability` reports `sdkUnavailable` and `start`
+    fails with `sdkUnavailable` (`FaceDetectorModelNotFound`) instead of crashing;
+  - the search runs once, on first use, never at launch;
+  - pending: confirm on the CI simulator build that a normal SwiftPM build passes this
+    check.
 
 ## 9. Resolved and open questions
 
@@ -669,6 +735,10 @@ of all 247 artifacts on the example's `releaseRuntimeClasspath`:
 - Plugin strings: the Android cancel label and its content description ship in en and tr
   and can be overridden with the same keys. On iOS the plugin has no visible strings,
   because the SDK draws its own close button.
+- Correction (P4): amplify-ui-swift-liveness 1.5.1 does have a cancel slot
+  (`.cancelButton { configuration in ... }` and `.hidesCancelButton(_:)`). The plugin keeps
+  the SDK's default close button on iOS, so the decision below is unchanged; the slot is
+  an option if parity of the cancel control is needed later.
 - Key lists go into `doc/localization.md`.
 - Cancel:
   - both platforms show a cancel control. Android uses the plugin's button in the SDK's
@@ -731,11 +801,22 @@ of all 247 artifacts on the example's `releaseRuntimeClasspath`:
    - the `CameraPermission` status table;
    - `ThemeMapper`;
    - credentials conversion and timeout.
-3. **Swift XCTest** (`example/ios/RunnerTests`):
-   - `ErrorMapper` for codes 0–19, unknown codes and the credentials precedence rule;
-   - `SessionCoordinator` exactly-once;
-   - `Presenter` finds the topmost controller in a fake view-controller tree;
-   - the CocoaPods job checks that `sdkUnavailable` is reported.
+3. **Swift XCTest** (`example/ios/RunnerTests`, 46 tests; also run on Linux by
+   `tool/ios_linux_check.sh`):
+   - `ErrorMapper` for codes 0–19, unknown codes, and the user-cancel, credentials and
+     plugin-end precedence rules;
+   - `SessionCoordinator`: exactly-once delivery, delivery after dismissal and the grace
+     fallback, `alreadyActive`, engine detach, lookup scoping;
+   - `CredentialsBroker`: success, failure values, invalid or expired credentials, channel
+     error, timeout at `credentialsTimeoutMillis` + 5 s, attempt end, redaction;
+   - `CameraPermission`: the status table, and that a missing usage description never
+     prompts;
+   - `LivenessHost` with fakes: availability reasons, `sdkUnavailable` (CocoaPods),
+     permission paths, cancel during the prompt, timeout, presenter loss, credentials
+     precedence, interruption, dispose;
+   - `Presenter` on a fake view-controller tree, ARGB conversion, the model lookup;
+   - the CI jobs set `TEST_RUNNER_AWS_LIVENESS_EXPECT_SDK` (`1` for SPM, `0` for
+     CocoaPods) and a test checks that the build matches.
 4. **Integration tests** (`example/integration_test`, real device; sessions come from
    `examples/backend-express`):
    - `checkAvailability`;
@@ -777,6 +858,9 @@ These go into `doc/platform-parity.md`.
   region is checked on a device; until then it is expected to map to `unknown`.
 - **Orientation:** Android locks portrait; iOS shows a rotate prompt.
 - **Permission statuses:** `denied` exists only on Android, `restricted` only on iOS.
+- **Permission errors:** iOS cannot prompt twice, so a denial in `start` is always
+  `cameraPermissionPermanentlyDenied`; Android reports `cameraPermissionDenied` until the
+  user picks "don't ask again".
 - **Credential requests:** Android may call the provider again after a reconnect; iOS
   calls it once per attempt.
 

@@ -7,6 +7,8 @@
 * Typed results (`LivenessCompleted`, `LivenessCancelled`, `LivenessFailed`) and
   stable `LivenessErrorCode`s with category and retryability.
 * Pigeon channel contract with generated Dart, Kotlin and Swift bindings.
-* Android host on the Amplify Face Liveness SDK. The iOS host is not implemented yet.
+* Android host on the Amplify Face Liveness SDK.
+* iOS host on the Amplify UI Swift Face Liveness SDK (Swift Package Manager only;
+  CocoaPods builds report `sdkUnavailable`). Not yet built or run on macOS.
 * Example app and an Express backend example (sessions, scoped credentials,
   server-side result decision).

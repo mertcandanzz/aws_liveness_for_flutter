@@ -1,0 +1,36 @@
+{
+  "name": "aws-liveness-backend-express",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example backend for aws_liveness_for_flutter: creates Face Liveness sessions, vends scoped temporary credentials and decides results server-side.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-rekognition": "^3.1152.0",
+    "@aws-sdk/client-sts": "^3.1152.0",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "@types/supertest": "^7.2.1",
+    "aws-sdk-client-mock": "^4.1.0",
+    "eslint": "^10.12.0",
+    "supertest": "^7.3.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.4"
+  }
+}

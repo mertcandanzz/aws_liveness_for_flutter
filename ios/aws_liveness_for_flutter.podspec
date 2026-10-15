@@ -7,7 +7,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'aws_liveness_for_flutter'
-  s.version          = '0.0.1'
+  s.version          = '0.1.0'
   s.summary          = 'Native Amazon Rekognition Face Liveness for Flutter.'
   s.description      = <<-DESC
 Native Amazon Rekognition Face Liveness for Flutter on iOS and Android, built on the

@@ -166,7 +166,7 @@ jobs:
         run: bash tool/ios_linux_check.sh
 
   ios-spm:
-    name: iOS SwiftPM (Flutter ${{ matrix.label }})
+    name: iOS SwiftPM (Flutter ${{ matrix.label }}, Xcode ${{ matrix.xcode }})
     runs-on: macos-15
     timeout-minutes: 60
     strategy:
@@ -175,12 +175,21 @@ jobs:
         include:
           - label: 3.38.x
             flutter-version: 3.38.7
+            xcode: '26.0.1'
           - label: stable
             flutter-version: ''
+            xcode: '26.3'
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Select Xcode and record the Swift toolchain
+        env:
+          XCODE_VERSION: ${{ matrix.xcode }}
+        run: |
+          sudo xcode-select -s "/Applications/Xcode_${XCODE_VERSION}.app"
+          xcodebuild -version
+          swift --version
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -217,13 +226,18 @@ jobs:
           retention-days: 7
 
   ios-cocoapods:
-    name: iOS CocoaPods fallback (sdkUnavailable)
+    name: iOS CocoaPods fallback (Xcode 26.0.1, sdkUnavailable)
     runs-on: macos-15
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Select Xcode and record the Swift toolchain
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.0.1.app
+          xcodebuild -version
+          swift --version
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

@@ -536,7 +536,8 @@ Layering: the platform-free core is testable with fakes and the adapters are thi
     - When the UI is shown, the result is delivered from the dismissal completion, so the
       next presentation starts cleanly. `dismissalGrace` (3 s) bounds that wait.
     - `end(_:with:)` records the plugin-initiated end (rule 2).
-    - `detach(engine:)` drops an attempt without a result.
+    - `detach(engine:)` drops an attempt without a result, including one whose UI is
+      still closing: its pending delivery and grace timer are cancelled.
     - End handlers fail pending credential requests at once.
   - `CredentialsBroker.swift`:
     - bridges `fetchCredentials(attemptId)` to `async` with a checked continuation;
@@ -801,7 +802,7 @@ of all 247 artifacts on the example's `releaseRuntimeClasspath`:
    - the `CameraPermission` status table;
    - `ThemeMapper`;
    - credentials conversion and timeout.
-3. **Swift XCTest** (`example/ios/RunnerTests`, 46 tests; also run on Linux by
+3. **Swift XCTest** (`example/ios/RunnerTests`, 50 tests; also run on Linux by
    `tool/ios_linux_check.sh`):
    - `ErrorMapper` for codes 0–19, unknown codes, and the user-cancel, credentials and
      plugin-end precedence rules;

@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:yaml/yaml.dart';
 
 /// Guards the plugin registration and native source layout that the Flutter
 /// tool, SwiftPM and CocoaPods rely on. Paths are relative to the package root.
@@ -12,14 +13,28 @@ void main() {
 
   String read(String path) => File(path).readAsStringSync();
 
-  test('pubspec registers the expected plugin classes', () {
-    final pubspec = read('pubspec.yaml');
+  YamlMap platforms() {
+    final pubspec = loadYaml(read('pubspec.yaml')) as YamlMap;
+    final flutter = pubspec['flutter'] as YamlMap;
+    final plugin = flutter['plugin'] as YamlMap;
+    return plugin['platforms'] as YamlMap;
+  }
 
-    expect(pubspec, contains('package: $androidPackage'));
-    expect(
-      RegExp('pluginClass: $pluginClass').allMatches(pubspec),
-      hasLength(2),
-    );
+  test('pubspec registers exactly the android and ios platforms', () {
+    expect(platforms().keys.toSet(), {'android', 'ios'});
+  });
+
+  test('pubspec registers the Android plugin class and package', () {
+    final android = platforms()['android'] as YamlMap;
+
+    expect(android['package'], androidPackage);
+    expect(android['pluginClass'], pluginClass);
+  });
+
+  test('pubspec registers the iOS plugin class', () {
+    final ios = platforms()['ios'] as YamlMap;
+
+    expect(ios['pluginClass'], pluginClass);
   });
 
   test('Android plugin class lives in the declared package', () {
@@ -52,5 +67,17 @@ void main() {
     expect(podspec, contains("'$sourcesFromIos/**/*.swift'"));
     expect(podspec, contains("'$sourcesFromIos/PrivacyInfo.xcprivacy'"));
     expect(podspec, contains("s.platform = :ios, '15.0'"));
+  });
+
+  test('generated Pigeon outputs exist for every platform', () {
+    expect(File('lib/src/messages.g.dart').existsSync(), isTrue);
+    expect(
+      File(
+        'android/src/main/kotlin/io/github/mertcandanzz/'
+        'aws_liveness_for_flutter/Messages.g.kt',
+      ).existsSync(),
+      isTrue,
+    );
+    expect(File('$iosSources/Messages.g.swift').existsSync(), isTrue);
   });
 }

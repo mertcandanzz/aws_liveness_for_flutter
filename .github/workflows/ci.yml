@@ -76,7 +76,7 @@ jobs:
         run: bash .github/scripts/check_pana.sh
       - name: Validate the committed pub archive without publishing
         run: bash .github/scripts/check_publish.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: dart-reports-${{ matrix.label }}
@@ -135,7 +135,7 @@ jobs:
           :aws_liveness_for_flutter:lintDebug
           :app:verifyDebugCameraFeatures :app:verifyReleaseCameraFeatures
           --stacktrace
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: android-reports-kotlin-${{ matrix.kotlin }}
@@ -215,7 +215,7 @@ jobs:
           # xcodebuild forwards TEST_RUNNER_* without the prefix to the test process.
           TEST_RUNNER_AWS_LIVENESS_EXPECT_SDK: '1'
         run: bash ../.github/scripts/ios_xctest.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ios-spm-tests-${{ matrix.label }}
@@ -263,7 +263,7 @@ jobs:
         env:
           TEST_RUNNER_AWS_LIVENESS_EXPECT_SDK: '0'
         run: bash ../.github/scripts/ios_xctest.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ios-cocoapods-tests

@@ -6,5 +6,7 @@
   camera permission helpers, `openAppSettings` and `knownSupportedRegions`.
 * Typed results (`LivenessCompleted`, `LivenessCancelled`, `LivenessFailed`) and
   stable `LivenessErrorCode`s with category and retryability.
-* Pigeon channel contract with generated Dart, Kotlin and Swift bindings. Native
-  hosts are not implemented yet.
+* Pigeon channel contract with generated Dart, Kotlin and Swift bindings.
+* Android host on the Amplify Face Liveness SDK. The iOS host is not implemented yet.
+* Example app and an Express backend example (sessions, scoped credentials,
+  server-side result decision).

@@ -192,6 +192,10 @@ jobs:
           path: ~/Library/Caches/org.swift.swiftpm
           key: spm-${{ runner.os }}-${{ matrix.label }}-${{ hashFiles('ios/**/Package.swift') }}
           restore-keys: spm-${{ runner.os }}-${{ matrix.label }}-
+      - name: Enable SPM build-tool plugins on the disposable CI runner
+        # SmithyCodeGeneratorPlugin is an Amplify dependency. This runner has only
+        # a read token; Flutter's xcodebuild invocation cannot answer Xcode dialogs.
+        run: defaults write com.apple.dt.Xcode IDESkipPackagePluginFingerprintValidatation -bool YES
       - run: flutter config --enable-swift-package-manager
       - name: Build the example for the simulator
         working-directory: example

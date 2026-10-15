@@ -1,19 +1,7 @@
 import Flutter
 import UIKit
 
+/// Entry point registered with the Flutter engine. Channels are added with the Pigeon contract.
 public class AwsLivenessForFlutterPlugin: NSObject, FlutterPlugin {
-  public static func register(with registrar: FlutterPluginRegistrar) {
-    let channel = FlutterMethodChannel(name: "aws_liveness_for_flutter", binaryMessenger: registrar.messenger())
-    let instance = AwsLivenessForFlutterPlugin()
-    registrar.addMethodCallDelegate(instance, channel: channel)
-  }
-
-  public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
-    switch call.method {
-    case "getPlatformVersion":
-      result("iOS " + UIDevice.current.systemVersion)
-    default:
-      result(FlutterMethodNotImplemented)
-    }
-  }
+  public static func register(with registrar: FlutterPluginRegistrar) {}
 }

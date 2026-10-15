@@ -1,8 +1,5 @@
-
-import 'aws_liveness_for_flutter_platform_interface.dart';
-
-class AwsLivenessForFlutter {
-  Future<String?> getPlatformVersion() {
-    return AwsLivenessForFlutterPlatform.instance.getPlatformVersion();
-  }
-}
+/// Native Amazon Rekognition Face Liveness for Flutter on iOS and Android,
+/// built on the official AWS Amplify Face Liveness SDKs.
+///
+/// The public API is defined in `doc/design.md` and is not available yet.
+library;

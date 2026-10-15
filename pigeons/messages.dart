@@ -198,7 +198,12 @@ class CredentialsMessage {
 }
 
 /// Why Dart could not supply credentials.
-enum CredentialsFailureMessage { providerError, timedOut, invalid, staleAttempt }
+enum CredentialsFailureMessage {
+  providerError,
+  timedOut,
+  invalid,
+  staleAttempt,
+}
 
 /// Exactly one of credentials or failure is non-null. Native treats any other
 /// combination as a failure.

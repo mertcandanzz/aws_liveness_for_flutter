@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window theme behind the Compose liveness UI; the colours come from LivenessTheme. -->
+    <style name="AwsLiveness.Theme" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <style name="AwsLiveness.Theme.Translucent" parent="android:Theme.Translucent.NoTitleBar" />
+</resources>

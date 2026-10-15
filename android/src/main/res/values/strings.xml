@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Override these keys in the app's res/values-<lang>/strings.xml to change the text. -->
+    <string name="aws_liveness_cancel">Cancel</string>
+    <string name="aws_liveness_cancel_content_description">Cancel the face liveness check</string>
+</resources>

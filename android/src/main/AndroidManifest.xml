@@ -1,3 +1,26 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="io.github.mertcandanzz.aws_liveness_for_flutter">
+
+  <uses-permission android:name="android.permission.CAMERA" />
+
+  <!-- The CAMERA permission implies a required camera; without these, Google Play would hide
+       the host app from devices without one. checkAvailability() reports noCamera instead. -->
+  <uses-feature android:name="android.hardware.camera" android:required="false" />
+  <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+
+  <application>
+    <activity
+      android:name=".LivenessActivity"
+      android:exported="false"
+      android:excludeFromRecents="true"
+      android:theme="@style/AwsLiveness.Theme"
+      android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection" />
+
+    <activity
+      android:name=".CameraPermissionActivity"
+      android:exported="false"
+      android:excludeFromRecents="true"
+      android:theme="@style/AwsLiveness.Theme.Translucent"
+      android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection" />
+  </application>
 </manifest>

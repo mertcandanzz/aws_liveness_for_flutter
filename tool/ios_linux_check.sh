@@ -18,7 +18,8 @@ if command -v cygpath >/dev/null 2>&1; then
 fi
 image="${SWIFT_IMAGE:-swift:5.10-jammy}"
 
-MSYS_NO_PATHCONV=1 docker run --rm -i -v "$root:/repo:ro" "$image" bash -s <<'EOF'
+# Forward the optional SDK expectation to XCTest (0 for this Linux fallback build).
+MSYS_NO_PATHCONV=1 docker run --rm -i -e AWS_LIVENESS_EXPECT_SDK -v "$root:/repo:ro" "$image" bash -s <<'EOF'
 set -euo pipefail
 src=/repo/ios/aws_liveness_for_flutter/Sources/aws_liveness_for_flutter
 tests=/repo/example/ios/RunnerTests

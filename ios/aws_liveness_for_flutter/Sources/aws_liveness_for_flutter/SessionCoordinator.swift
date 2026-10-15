@@ -12,6 +12,13 @@ final class ActiveAttempt {
 
   private(set) var isFinished = false
 
+  /// Set when the owning engine detached (design §6.9). Nothing is delivered afterwards,
+  /// even if the attempt was already finishing.
+  private(set) var isDetached = false
+
+  /// The grace timer of a delivery that waits for the UI to close.
+  fileprivate var pendingDelivery: Cancellation?
+
   /// Set when our credentials provider failed for this attempt (design §4.2, rule 3).
   var credentialsFailed = false
 
@@ -56,8 +63,19 @@ final class ActiveAttempt {
     return close
   }
 
+  /// Delivers [outcome] unless the engine detached.
   fileprivate func send(_ outcome: OutcomeMessage) {
+    guard !isDetached else {
+      return
+    }
     deliver(outcome)
+  }
+
+  /// Suppresses every later delivery and cancels a pending one.
+  fileprivate func markDetached() {
+    isDetached = true
+    pendingDelivery?.cancel()
+    pendingDelivery = nil
   }
 }
 
@@ -121,13 +139,13 @@ final class SessionCoordinator {
       return false
     }
     var delivered = false
-    var grace: Cancellation?
     let deliverOnce: @MainActor () -> Void = { [weak self] in
       guard !delivered else {
         return
       }
       delivered = true
-      grace?.cancel()
+      attempt.pendingDelivery?.cancel()
+      attempt.pendingDelivery = nil
       self?.release(attempt)
       attempt.send(outcome)
     }
@@ -135,21 +153,22 @@ final class SessionCoordinator {
       deliverOnce()
       return true
     }
-    grace = scheduler.schedule(after: Self.dismissalGrace, deliverOnce)
+    attempt.pendingDelivery = scheduler.schedule(after: Self.dismissalGrace, deliverOnce)
     close(deliverOnce)
     return true
   }
 
   /// Ends the attempt of a detaching engine without a result: its Dart side is gone
-  /// (design §6.9). The native UI is closed.
+  /// (design §6.9). This also covers an attempt that already finished and is waiting for
+  /// its UI to close: that pending result is dropped and its grace timer cancelled. Pending
+  /// credential requests fail through the end handlers, and the native UI is closed.
   func detach(engine: AnyObject) {
     guard let attempt = active, attempt.engine === engine else {
       return
     }
+    attempt.markDetached()
     release(attempt)
-    guard attempt.markFinished() else {
-      return
-    }
+    _ = attempt.markFinished()
     attempt.takeCloseUI()?({})
   }
 

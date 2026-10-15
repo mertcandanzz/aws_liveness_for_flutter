@@ -9,8 +9,9 @@ No WebView, no Cognito required.
 
 ## Status
 
-Early development. The package is not published yet and has no public API.
-The design lives in `doc/design.md` once it lands.
+Early development; not published yet. The Dart API (`AwsLiveness.start`) and the
+channel contract are in place, the native Android and iOS hosts are in progress, so
+`start` currently reports `sdkUnavailable`. See [doc/design.md](doc/design.md).
 
 ## What your app will need
 

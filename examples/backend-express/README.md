@@ -14,7 +14,7 @@ database and a shared rate limiter behind it before running more than one instan
 
 ## Run
 
-Requires Node.js 20 or later.
+Requires Node.js 22.13+ on the 22 line, 24.x or 26 and later (`^22.13.0 || ^24.0.0 || >=26.0.0`; `.nvmrc` pins 22.13.0 and `.npmrc` sets `engine-strict`).
 
 ```sh
 npm ci

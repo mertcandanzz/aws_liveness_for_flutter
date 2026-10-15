@@ -14,7 +14,7 @@ Thanks for helping. Bug reports, fixes and documentation improvements are welcom
 - Flutter 3.38 or later (Dart 3.10).
 - Android: JDK 17 and the Android SDK.
 - iOS: a Mac with Xcode for builds. Without a Mac, see the Linux check below.
-- Node.js 20.11 or later for the backend examples under `examples/`.
+- Node.js for the backend examples under `examples/`: `^22.13.0 || ^24.0.0 || >=26.0.0`, the range every locked tool supports (ESLint 10 needs 22.13+ on the 22 line; Vitest 5 skips the odd releases 23 and 25). Each project has `.nvmrc` and `engine-strict=true`.
 
 ```sh
 flutter pub get

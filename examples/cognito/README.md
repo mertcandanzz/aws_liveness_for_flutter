@@ -59,7 +59,7 @@ backend credentials endpoint instead.
 
 ## Deploy
 
-Requires Node.js 20.11 or later and AWS credentials for a profile that may deploy
+Requires Node.js 22.13+ on the 22 line, 24.x or 26 and later (`^22.13.0 || ^24.0.0 || >=26.0.0`; `.nvmrc` pins 22.13.0 and `.npmrc` sets `engine-strict`) and AWS credentials for a profile that may deploy
 CloudFormation stacks. Pick a [region with Face Liveness](../../doc/troubleshooting.md#regions).
 
 ```sh

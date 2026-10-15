@@ -108,7 +108,7 @@ jobs:
           channel: stable
           flutter-version: 3.38.7
           cache: true
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         with:
           # The action defaults to the removed legacy 'tools' package.
           packages: platform-tools

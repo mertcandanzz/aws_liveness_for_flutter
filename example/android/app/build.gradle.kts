@@ -1,3 +1,7 @@
+import com.android.build.api.artifact.SingleArtifact
+import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Element
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -47,4 +51,45 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+}
+
+/**
+ * Fails the build when the merged manifest makes a camera feature required. Google Play
+ * filters apps by required features, and a missing android:required means true; see the
+ * comment in the plugin's AndroidManifest.xml.
+ */
+abstract class VerifyCameraFeaturesTask : DefaultTask() {
+    @get:InputFile
+    abstract val mergedManifest: RegularFileProperty
+
+    @TaskAction
+    fun verify() {
+        val androidNs = "http://schemas.android.com/apk/res/android"
+        val document = DocumentBuilderFactory.newInstance()
+            .apply { isNamespaceAware = true }
+            .newDocumentBuilder()
+            .parse(mergedManifest.get().asFile)
+        val features = document.getElementsByTagName("uses-feature")
+        val required = (0 until features.length)
+            .map { features.item(it) as Element }
+            .filter { it.getAttributeNS(androidNs, "name").startsWith("android.hardware.camera") }
+            .filter { it.getAttributeNS(androidNs, "required") != "false" }
+            .map { it.getAttributeNS(androidNs, "name") }
+        if (required.isNotEmpty()) {
+            throw GradleException(
+                "Camera features must be optional, but the merged manifest requires: " +
+                    required.joinToString(),
+            )
+        }
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val verify = tasks.register<VerifyCameraFeaturesTask>("verify${variantName}CameraFeatures") {
+            mergedManifest.set(variant.artifacts.get(SingleArtifact.MERGED_MANIFEST))
+        }
+        tasks.matching { it.name == "assemble$variantName" }.configureEach { dependsOn(verify) }
+    }
 }

@@ -3,6 +3,67 @@ version = "1.0-SNAPSHOT"
 
 buildscript {
     ext.kotlin_version = "2.2.20"
+    ext.aws_liveness_min_kotlin_version = "2.1.0"
+
+    // In a Flutter app the host's Kotlin Gradle plugin is loaded by settings.gradle(.kts) on a
+    // parent class loader, so it wins over the version declared below. The Compose compiler
+    // Gradle plugin is versioned with Kotlin, so it is resolved for the host's version
+    // (design §9.1, option b). The host app needs no change.
+    def readHostKotlinVersion = {
+        try {
+            def wrapper = Class.forName(
+                "org.jetbrains.kotlin.gradle.plugin.KotlinAndroidPluginWrapper",
+                false,
+                getClass().classLoader
+            )
+            def location = wrapper.protectionDomain?.codeSource?.location
+            if (location == null) {
+                return null
+            }
+            def jar = new java.util.jar.JarFile(new File(location.toURI()))
+            try {
+                def entry = jar.getEntry("project.properties")
+                if (entry == null) {
+                    return null
+                }
+                def properties = new Properties()
+                jar.getInputStream(entry).withCloseable { properties.load(it) }
+                return properties.getProperty("project.version")
+            } finally {
+                jar.close()
+            }
+        } catch (ClassNotFoundException ignored) {
+            return null
+        }
+    }
+    def versionParts = { String value ->
+        value.tokenize(".-").take(3).collect { it.isInteger() ? it.toInteger() : 0 }
+    }
+    def isOlderThan = { String value, String minimum ->
+        def actual = versionParts(value)
+        def required = versionParts(minimum)
+        for (int i = 0; i < 3; i++) {
+            def a = i < actual.size() ? actual[i] : 0
+            def r = i < required.size() ? required[i] : 0
+            if (a != r) {
+                return a < r
+            }
+        }
+        return false
+    }
+
+    def hostKotlinVersion = readHostKotlinVersion() ?: kotlin_version
+    if (isOlderThan(hostKotlinVersion, aws_liveness_min_kotlin_version)) {
+        throw new GradleException(
+            "aws_liveness_for_flutter needs Kotlin $aws_liveness_min_kotlin_version or newer, " +
+                "but the app uses Kotlin $hostKotlinVersion. Raise the version of " +
+                "\"org.jetbrains.kotlin.android\" in android/settings.gradle(.kts)."
+        )
+    }
+    // Both artifacts use the host's version: the Kotlin Gradle plugin's BOM would otherwise
+    // upgrade the Compose plugin past the Kotlin compiler that actually runs.
+    ext.aws_liveness_kotlin_plugin_version = hostKotlinVersion
+
     repositories {
         google()
         mavenCentral()
@@ -10,7 +71,8 @@ buildscript {
 
     dependencies {
         classpath("com.android.tools.build:gradle:8.11.1")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$aws_liveness_kotlin_plugin_version")
+        classpath("org.jetbrains.kotlin:compose-compiler-gradle-plugin:$aws_liveness_kotlin_plugin_version")
     }
 }
 
@@ -23,6 +85,7 @@ allprojects {
 
 apply plugin: "com.android.library"
 apply plugin: "kotlin-android"
+apply plugin: "org.jetbrains.kotlin.plugin.compose"
 
 android {
     namespace = "io.github.mertcandanzz.aws_liveness_for_flutter"
@@ -45,9 +108,19 @@ android {
 
     defaultConfig {
         minSdk = 24
+        consumerProguardFiles("consumer-rules.pro")
+    }
+
+    buildFeatures {
+        compose = true
     }
 
     dependencies {
+        implementation("com.amplifyframework.ui:liveness:1.12.0")
+        implementation(platform("androidx.compose:compose-bom:2026.03.00"))
+        implementation("androidx.compose.material3:material3")
+        implementation("androidx.activity:activity-compose:1.10.1")
+
         testImplementation("org.jetbrains.kotlin:kotlin-test")
         testImplementation("org.mockito:mockito-core:5.0.0")
     }

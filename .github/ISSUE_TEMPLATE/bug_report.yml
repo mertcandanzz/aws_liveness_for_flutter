@@ -1,0 +1,60 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Never paste AWS credentials, session tokens, bearer tokens or face images.**
+        Security problems go to the private advisory form instead (see SECURITY.md).
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options:
+        - Android
+        - iOS (Swift Package Manager)
+        - iOS (CocoaPods)
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: versions
+    attributes:
+      label: Environment
+      description: Output of `flutter --version`, plus the device model and OS version, and Kotlin/AGP or Xcode versions if relevant.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include `LivenessError.code`, `category` and `nativeDetails` if you got a `LivenessFailed`.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: A minimal code sample or the steps in the example app.
+    validations:
+      required: true
+  - type: input
+    id: region
+    attributes:
+      label: AWS region
+      placeholder: eu-west-1

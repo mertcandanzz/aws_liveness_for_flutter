@@ -29,6 +29,9 @@ class Strings {
   String get invalidSettings => _tr
       ? 'Geçerli bir http(s) adresi ve anahtar girin.'
       : 'Enter a valid http(s) URL and a token.';
+  String get insecureUrl => _tr
+      ? 'https:// adresi kullanın. http:// yalnızca debug derlemede localhost için izinli.'
+      : 'Use an https:// URL. http:// is allowed only for localhost in debug builds.';
   String get options => _tr ? 'Seçenekler' : 'Options';
   String get challenge => _tr ? 'Görev' : 'Challenge';
   String get challengeServer => _tr ? 'Sunucu seçsin' : 'Server default';

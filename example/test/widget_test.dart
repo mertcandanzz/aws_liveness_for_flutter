@@ -51,6 +51,31 @@ void main() {
     expect(find.text('Enter a valid http(s) URL and a token.'), findsOneWidget);
   });
 
+  testWidgets('refuses to save an insecure non-loopback URL', (tester) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Backend URL'),
+      'http://192.168.1.20:8787',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Access token'),
+      'token-value',
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('backend_url'), isNull);
+    expect(
+      find.text(
+        'Use an https:// URL. http:// is allowed only for localhost in debug builds.',
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('saves valid settings', (tester) async {
     await tester.pumpWidget(const ExampleApp());
     await tester.pumpAndSettle();

@@ -67,13 +67,20 @@ class _LivenessPageState extends State<LivenessPage> {
   BackendSettings get _settings =>
       BackendSettings(url: _urlController.text, token: _tokenController.text);
 
+  /// Shows why [settings] cannot be used and returns false, or returns true.
+  bool _validate(BackendSettings settings) {
+    if (settings.isComplete) return true;
+    final message = settings.isInsecure ? _s.insecureUrl : _s.invalidSettings;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+    return false;
+  }
+
   Future<void> _saveSettings() async {
     final settings = _settings;
+    if (!_validate(settings)) return;
     final messenger = ScaffoldMessenger.of(context);
-    if (!settings.isComplete) {
-      messenger.showSnackBar(SnackBar(content: Text(_s.invalidSettings)));
-      return;
-    }
     await _store.save(settings);
     messenger.showSnackBar(SnackBar(content: Text(_s.saved)));
   }
@@ -86,15 +93,18 @@ class _LivenessPageState extends State<LivenessPage> {
   /// Runs one attempt with a NEW session every time.
   Future<void> _start() async {
     final settings = _settings;
+    if (!_validate(settings)) return;
     final baseUrl = settings.parsedUrl;
-    if (baseUrl == null || settings.token.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(_s.invalidSettings)));
+    if (baseUrl == null) return;
+
+    final BackendClient client;
+    try {
+      // Re-checks the transport policy before any request is sent.
+      client = BackendClient(baseUrl: baseUrl, token: settings.token);
+    } on BackendException catch (error) {
+      _show(BackendFailed(error));
       return;
     }
-
-    final client = BackendClient(baseUrl: baseUrl, token: settings.token);
     _show(const Running(RunStep.creatingSession));
     try {
       final session = await client.createSession(challenge: _challenge);

@@ -82,8 +82,9 @@ internal class ActiveAttempt(
  * caller that starts again right away finds its own Activity back in the foreground.
  *
  * An attempt stays in one list from [begin] until it is delivered or dropped, so
- * [detachEngine] sees it at every step of a delivery; the final send re-checks under the same
- * lock. Once [detachEngine] has returned, nothing is delivered for that engine.
+ * [detachEngine] sees it at every step of a delivery, and the delivery callback runs under
+ * the same lock. Once [detachEngine] has returned, no callback for that engine is running or
+ * can start.
  */
 internal class SessionRegistry(
     private val scheduler: Scheduler,
@@ -209,9 +210,15 @@ internal class SessionRegistry(
 
     private fun post(attempt: ActiveAttempt, outcome: OutcomeMessage) {
         scheduler.post {
-            // The single send point: claims the delivery under the lock detach takes.
-            val shouldDeliver = synchronized(lock) { !attempt.isDetached && undelivered.remove(attempt) }
-            if (shouldDeliver) {
+            // The single send point. Claiming and calling back happen under the lock that
+            // detachEngine takes, so a delivery either completes before a detach starts or
+            // never runs: once detachEngine has returned, no callback is running or can start.
+            // The callback is the Pigeon reply, which only queues a message and never blocks.
+            synchronized(lock) {
+                if (attempt.isDetached || !undelivered.remove(attempt)) {
+                    return@post
+                }
+                raceHooks.afterClaim()
                 attempt.deliver(outcome)
             }
         }
@@ -221,6 +228,7 @@ internal class SessionRegistry(
     internal class RaceHooks(
         val afterRelease: () -> Unit = {},
         val beforePost: () -> Unit = {},
+        val afterClaim: () -> Unit = {},
     )
 
     companion object {

@@ -9,9 +9,9 @@ No WebView, no Cognito required.
 
 ## Status
 
-Early development; not published yet. The Dart API (`AwsLiveness.start`) and the
-channel contract are in place, the native Android and iOS hosts are in progress, so
-`start` currently reports `sdkUnavailable`. See [doc/design.md](doc/design.md).
+Early development; not published yet. The Dart API and the Android host are
+implemented; the iOS host is in progress, so on iOS `start` currently reports
+`sdkUnavailable`. Real-device checks are pending. See [doc/design.md](doc/design.md).
 
 ## What your app will need
 
@@ -24,9 +24,34 @@ These requirements come from the underlying AWS SDKs and cannot be hidden by the
   `rekognition:StartFaceLivenessSession`, supplied by your app. Never ship long-lived keys.
 - **A supported region.** Face Liveness is not available in every AWS region
   (for example `eu-west-1` has it, `eu-central-1` does not).
-- **Android:** `minSdk 24`.
+- **Android:** `minSdk 24`, `compileSdk 36`, Android Gradle Plugin 8.6 or later and
+  Kotlin 2.1 or later. The Amplify SDK needs core library desugaring in your app module
+  (`android/app/build.gradle.kts`); `MainActivity` stays unchanged:
+
+  ```kotlin
+  android { compileOptions { isCoreLibraryDesugaringEnabled = true } }
+  dependencies { coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5") }
+  ```
+
 - **iOS:** iOS 15.0 or later, Swift Package Manager enabled, and an
   `NSCameraUsageDescription` entry in your app's `Info.plist`.
+
+## Example
+
+- [`examples/backend-express`](examples/backend-express) is a small TypeScript backend
+  that creates sessions, vends liveness-only credentials (STS `AssumeRole`, 15 minutes)
+  and decides the result with a server-side threshold. Its README has the IAM policies.
+- [`example/`](example) is a Flutter app that talks to that backend. Enter the backend
+  URL and token in the app, or pass them at build time:
+
+  ```sh
+  adb reverse tcp:8787 tcp:8787
+  flutter run --dart-define=LIVENESS_BACKEND_URL=http://localhost:8787 \
+              --dart-define=LIVENESS_BACKEND_TOKEN=<token>
+  ```
+
+Each check is billed by Rekognition (about 0.015 USD) and every attempt needs a new
+session.
 
 ## License
 

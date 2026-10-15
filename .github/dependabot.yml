@@ -37,6 +37,40 @@ updates:
         patterns:
           - "@aws-sdk/*"
 
+  - package-ecosystem: npm
+    directory: /examples/backend-lambda
+    schedule:
+      interval: weekly
+    groups:
+      aws-sdk:
+        patterns:
+          - "@aws-sdk/*"
+      aws-cdk:
+        patterns:
+          - "aws-cdk"
+          - "aws-cdk-lib"
+          - "constructs"
+
+  - package-ecosystem: npm
+    directory: /examples/cognito
+    schedule:
+      interval: weekly
+    groups:
+      aws-cdk:
+        patterns:
+          - "aws-cdk"
+          - "aws-cdk-lib"
+          - "constructs"
+
+  - package-ecosystem: pub
+    directory: /examples/cognito/flutter_client
+    schedule:
+      interval: weekly
+    groups:
+      amplify:
+        patterns:
+          - "amplify_*"
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

@@ -1,0 +1,87 @@
+# iOS jobs (P4). The Dart, Android and backend jobs are added in P7.
+#
+# Not run yet: this branch is pushed once the repository token has the `workflow` scope.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-swift-linux:
+    name: iOS sources on Linux (parse + platform-free XCTest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash tool/ios_linux_check.sh
+
+  ios-spm:
+    name: iOS SwiftPM (Flutter ${{ matrix.label }})
+    runs-on: macos-15
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: 3.38.x
+            flutter-version: 3.38.x
+          - label: stable
+            flutter-version: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ matrix.flutter-version }}
+          cache: true
+      - run: flutter config --enable-swift-package-manager
+      - name: Build the example for a device, without signing
+        working-directory: example
+        run: |
+          flutter pub get
+          flutter build ios --debug --no-codesign
+      - name: Run RunnerTests on a simulator
+        working-directory: example
+        env:
+          # xcodebuild passes TEST_RUNNER_* variables to the tests without the prefix.
+          TEST_RUNNER_AWS_LIVENESS_EXPECT_SDK: '1'
+        run: bash ../.github/scripts/ios_xctest.sh
+
+  ios-cocoapods:
+    name: iOS CocoaPods fallback (sdkUnavailable)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.38.x
+          cache: true
+      - run: flutter config --no-enable-swift-package-manager
+      - name: Create a Podfile for iOS 15
+        working-directory: example
+        run: |
+          flutter_root="$(dirname "$(dirname "$(command -v flutter)")")"
+          cp "$flutter_root/packages/flutter_tools/templates/cocoapods/Podfile-ios" ios/Podfile
+          sed -i '' "s/^# platform :ios, .*/platform :ios, '15.0'/" ios/Podfile
+          grep -q "^platform :ios, '15.0'" ios/Podfile
+      - name: Build the example for a device, without signing
+        working-directory: example
+        run: |
+          flutter pub get
+          flutter build ios --debug --no-codesign
+      - name: Run RunnerTests on a simulator
+        working-directory: example
+        env:
+          TEST_RUNNER_AWS_LIVENESS_EXPECT_SDK: '0'
+        run: bash ../.github/scripts/ios_xctest.sh

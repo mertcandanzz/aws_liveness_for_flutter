@@ -14,6 +14,9 @@ class FakeHostApi extends LivenessHostApi {
   /// When set, `cancel` throws this error.
   Object? cancelError;
 
+  /// When true, `cancel` returns a future that never completes.
+  bool cancelHangs = false;
+
   AvailabilityMessage availability = AvailabilityMessage(isAvailable: true);
   Object? availabilityError;
   CameraPermissionStatusMessage permissionStatus =
@@ -42,6 +45,7 @@ class FakeHostApi extends LivenessHostApi {
   @override
   Future<void> cancel(int attemptId, CancelRequestReasonMessage reason) async {
     cancelCalls.add((attemptId, reason));
+    if (cancelHangs) return Completer<void>().future;
     final error = cancelError;
     if (error != null) throw error;
   }

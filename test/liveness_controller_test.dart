@@ -267,6 +267,149 @@ void main() {
 
       await expectLater(controller.cancel(), completes);
     });
+
+    test('resolves after the grace period when native cancel hangs', () {
+      fakeAsync((async) {
+        host.cancelHangs = true;
+        LivenessResult? result;
+        var cancelDone = false;
+        controller.start(_request()).then((r) => result = r);
+
+        controller.cancel().then((_) => cancelDone = true);
+        async.elapse(const Duration(milliseconds: 4999));
+        expect(cancelDone, isFalse);
+
+        async.elapse(const Duration(milliseconds: 1));
+        expect(cancelDone, isTrue);
+        expect((result! as LivenessCancelled).reason, LivenessCancelReason.app);
+
+        // A late native reply is ignored.
+        host.replyFailed(ErrorCodeMessage.sessionInterrupted);
+        async.flushMicrotasks();
+        expect(result, isA<LivenessCancelled>());
+      });
+    });
+
+    test('resolves as soon as the attempt completes', () {
+      fakeAsync((async) {
+        host.cancelHangs = true;
+        var cancelDone = false;
+        controller.start(_request());
+
+        controller.cancel().then((_) => cancelDone = true);
+        async.elapse(const Duration(seconds: 1));
+        expect(cancelDone, isFalse);
+
+        host.reply(_cancelled(CancelReasonMessage.app));
+        async.flushMicrotasks();
+        expect(cancelDone, isTrue);
+      });
+    });
+
+    test('a hanging native cancel does not block the timeout result', () {
+      fakeAsync((async) {
+        host.cancelHangs = true;
+        LivenessResult? result;
+        controller
+            .start(_request(timeout: const Duration(seconds: 10)))
+            .then((r) => result = r);
+
+        async.elapse(const Duration(seconds: 15));
+
+        expect(
+          (result! as LivenessFailed).error.code,
+          LivenessErrorCode.timedOut,
+        );
+        expect(controller.isActive, isFalse);
+      });
+    });
+
+    test('a real completion racing the cancel is kept', () async {
+      final future = controller.start(_request());
+
+      await controller.cancel();
+      host.reply(_completed());
+
+      expect(await future, isA<LivenessCompleted>());
+    });
+  });
+
+  group('plugin-initiated end wins over a credentials failure', () {
+    test('timeout, then the provider throws during the grace period', () {
+      fakeAsync((async) {
+        final provider = Completer<LivenessCredentials>();
+        LivenessResult? result;
+        controller
+            .start(
+              _request(
+                provider: () => provider.future,
+                timeout: const Duration(seconds: 10),
+                credentialsTimeout: const Duration(minutes: 1),
+              ),
+            )
+            .then((r) => result = r);
+        CredentialsResultMessage? reply;
+        controller
+            .fetchCredentials(host.startCalls.single.attemptId)
+            .then((r) => reply = r);
+
+        async.elapse(const Duration(seconds: 10));
+        provider.completeError(Exception('backend down'));
+        async.flushMicrotasks();
+        expect(reply!.failure, CredentialsFailureMessage.providerError);
+
+        host.replyFailed(ErrorCodeMessage.timedOut);
+        async.flushMicrotasks();
+        expect(
+          (result! as LivenessFailed).error.code,
+          LivenessErrorCode.timedOut,
+        );
+      });
+    });
+
+    test('timeout, then the provider times out during the grace period', () {
+      fakeAsync((async) {
+        LivenessResult? result;
+        controller
+            .start(
+              _request(
+                provider: () => Completer<LivenessCredentials>().future,
+                timeout: const Duration(seconds: 10),
+                credentialsTimeout: const Duration(seconds: 12),
+              ),
+            )
+            .then((r) => result = r);
+        controller.fetchCredentials(host.startCalls.single.attemptId);
+
+        async.elapse(const Duration(seconds: 12));
+        host.replyFailed(ErrorCodeMessage.credentialsUnavailable);
+        async.flushMicrotasks();
+
+        expect(
+          (result! as LivenessFailed).error.code,
+          LivenessErrorCode.timedOut,
+        );
+      });
+    });
+
+    test('app cancel, then the provider throws during the grace period', () {
+      fakeAsync((async) {
+        final provider = Completer<LivenessCredentials>();
+        LivenessResult? result;
+        controller
+            .start(_request(provider: () => provider.future))
+            .then((r) => result = r);
+        controller.fetchCredentials(host.startCalls.single.attemptId);
+
+        controller.cancel();
+        provider.completeError(Exception('backend down'));
+        async.flushMicrotasks();
+        host.replyFailed(ErrorCodeMessage.credentialsUnavailable);
+        async.flushMicrotasks();
+
+        expect((result! as LivenessCancelled).reason, LivenessCancelReason.app);
+      });
+    });
   });
 
   group('fetchCredentials', () {

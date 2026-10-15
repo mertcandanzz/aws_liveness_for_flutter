@@ -173,23 +173,27 @@ class LivenessController implements LivenessFlutterApi {
     );
   }
 
-  /// Asks native to end [attempt] and completes with [fallback] if native
-  /// does not reply within [nativeReplyGrace].
+  /// Asks native to end [attempt] with [pluginEnd] as its result (design
+  /// §4.2 rule 2). Completes with [pluginEnd] if native does not reply within
+  /// [nativeReplyGrace]. The returned future completes when native confirms
+  /// the cancel or the attempt completes, whichever is first, so it never
+  /// outlives the grace period. It never throws.
   Future<void> _endFromDart(
     _Attempt attempt,
     CancelRequestReasonMessage reason,
-    LivenessResult fallback,
+    LivenessResult pluginEnd,
   ) async {
     if (attempt.completer.isCompleted) return;
+    attempt.pluginEnd ??= pluginEnd;
     attempt.graceTimer ??= Timer(
       nativeReplyGrace,
-      () => _finish(attempt, fallback),
+      () => _finish(attempt, attempt.pluginEnd!),
     );
-    try {
-      await _hostApi.cancel(attempt.id, reason);
-    } catch (_) {
-      // The grace timer delivers the result if native cannot.
-    }
+    final nativeCancel = Future.sync(() => _hostApi.cancel(attempt.id, reason))
+        .catchError((Object _) {
+          // The grace timer delivers the result if native cannot.
+        });
+    await Future.any([nativeCancel, attempt.completer.future]);
   }
 
   LivenessResult _toResult(_Attempt attempt, OutcomeMessage outcome) {
@@ -198,6 +202,13 @@ class LivenessController implements LivenessFlutterApi {
       sessionId: attempt.request.sessionId,
       platform: _platform,
     );
+    // Design §4.2 rule 2: once Dart has ended the attempt (timeout or app
+    // cancel), its result stands. Only a real completion that raced the
+    // cancel is kept, because the backend already has a verdict for it.
+    final pluginEnd = attempt.pluginEnd;
+    if (pluginEnd != null) {
+      return result is LivenessCompleted ? result : pluginEnd;
+    }
     final credentialsFailure = attempt.credentialsFailure;
     // Design §4.2 rule 3: our own credentials failure explains any SDK error.
     if (result is LivenessFailed && credentialsFailure != null) {
@@ -263,6 +274,9 @@ class _Attempt {
   final Completer<LivenessResult> completer = Completer<LivenessResult>();
   Timer? timeoutTimer;
   Timer? graceTimer;
+
+  /// Result of a Dart-initiated end (timeout or app cancel), once started.
+  LivenessResult? pluginEnd;
   _CredentialsOutcome? credentialsFailure;
 }
 

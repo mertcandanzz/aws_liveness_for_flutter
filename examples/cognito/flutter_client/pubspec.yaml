@@ -1,0 +1,21 @@
+name: liveness_cognito_client
+description: "Example: credentials for aws_liveness_for_flutter from a Cognito identity pool via Amplify Auth."
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.10.0
+  flutter: '>=3.38.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  amplify_auth_cognito: ^2.0.0
+  amplify_flutter: ^2.0.0
+  aws_liveness_for_flutter:
+    path: ../../../
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter

@@ -71,10 +71,13 @@ and reads the verdict. The app never decides whether a user is live. More in
 |---|---|
 | Flutter / Dart | 3.38 / 3.10 |
 | Android | `minSdk 24`, `compileSdk 36`, Android Gradle Plugin 8.6, Kotlin 2.1 |
-| iOS | 15.0, Swift Package Manager enabled |
+| iOS | 15.0, Swift Package Manager enabled; Xcode 26.0+ (Swift 6.2) for SPM |
 | AWS | A [region with Face Liveness](doc/troubleshooting.md#regions), a backend you run |
 
 Details and what is tested: [doc/compatibility.md](doc/compatibility.md).
+
+The SPM toolchain requirement comes from the
+[Amplify Swift README](https://github.com/aws-amplify/amplify-swift/blob/2.62.1/README.md).
 
 ## Install
 

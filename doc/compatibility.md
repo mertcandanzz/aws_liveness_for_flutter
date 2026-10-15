@@ -27,7 +27,11 @@ has not been exercised here yet.
 | Core library desugaring | required | build tested | AAR metadata (Amplify core libraries) |
 | iOS | 15.0 | **untested**: no Xcode build yet | `amplify-ui-swift-liveness` `Package.swift` |
 | Swift tools | 5.9 | syntax and Linux unit tests with Swift 5.10 and 6.1 only | `Package.swift` |
-| Xcode | — | **untested** | — |
+| Xcode (SPM) | 26.0+ (Swift 6.2) | SDK requirement; Xcode 26 CI validation pending | [Amplify Swift README](https://github.com/aws-amplify/amplify-swift/blob/2.62.1/README.md) |
+
+The plugin's Swift tools version of 5.9 describes its package manifest. It does not lower
+the compiler requirement of its transitive Amplify dependency: SPM builds need Xcode
+26.0 or later with Swift 6.2. Linux checks do not validate the Apple SDK integration.
 
 The Kotlin and AGP results come from local builds on 2026-10-15; the CI matrix will repeat
 them. See [design.md §9.1–9.2](design.md).

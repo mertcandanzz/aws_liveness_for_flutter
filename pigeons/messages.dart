@@ -2,6 +2,7 @@
 //
 // Regenerate after editing (from the package root):
 //   dart run pigeon --input pigeons/messages.dart
+//   dart format lib/src/messages.g.dart
 //
 // Generated files are committed; never edit them by hand.
 //

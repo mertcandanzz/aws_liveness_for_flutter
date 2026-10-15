@@ -10,9 +10,9 @@ import 'package:flutter/services.dart';
 import 'package:meta/meta.dart' show immutable, protected, visibleForTesting;
 
 Object? _extractReplyValueOrThrow(
-    List<Object?>? replyList,
-    String channelName, {
-    required bool isNullValid,
+  List<Object?>? replyList,
+  String channelName, {
+  required bool isNullValid,
 }) {
   if (replyList == null) {
     throw PlatformException(
@@ -34,8 +34,11 @@ Object? _extractReplyValueOrThrow(
   return replyList.firstOrNull;
 }
 
-
-List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty = false}) {
+List<Object?> wrapResponse({
+  Object? result,
+  PlatformException? error,
+  bool empty = false,
+}) {
   if (empty) {
     return <Object?>[];
   }
@@ -44,6 +47,7 @@ List<Object?> wrapResponse({Object? result, PlatformException? error, bool empty
   }
   return <Object?>[error.code, error.message, error.details];
 }
+
 bool _deepEquals(Object? a, Object? b) {
   if (identical(a, b)) {
     return true;
@@ -56,8 +60,9 @@ bool _deepEquals(Object? a, Object? b) {
   }
   if (a is List && b is List) {
     return a.length == b.length &&
-        a.indexed
-            .every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
+        a.indexed.every(
+          ((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]),
+        );
   }
   if (a is Map && b is Map) {
     if (a.length != b.length) {
@@ -106,39 +111,21 @@ int _deepHash(Object? value) {
   return value.hashCode;
 }
 
-
 /// Camera used by the FaceMovement challenge. FaceMovementAndLight is always
 /// front-facing.
-enum CameraMessage {
-  front,
-  back,
-}
+enum CameraMessage { front, back }
 
 /// Light/dark selection for the native liveness UI.
-enum ThemeModeMessage {
-  system,
-  light,
-  dark,
-}
+enum ThemeModeMessage { system, light, dark }
 
 /// Why Dart asks the native host to end an attempt.
-enum CancelRequestReasonMessage {
-  app,
-  timeout,
-}
+enum CancelRequestReasonMessage { app, timeout }
 
 /// Who cancelled a finished attempt.
-enum CancelReasonMessage {
-  user,
-  app,
-}
+enum CancelReasonMessage { user, app }
 
 /// Kind of a finished attempt.
-enum OutcomeKindMessage {
-  completed,
-  cancelled,
-  failed,
-}
+enum OutcomeKindMessage { completed, cancelled, failed }
 
 /// Wire mirror of the public LivenessErrorCode. Append-only: names and order
 /// must match LivenessErrorCode exactly (enforced by a Dart test).
@@ -243,7 +230,8 @@ class ColorsMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static ColorsMessage decode(Object result) {
     result as List<Object?>;
@@ -269,7 +257,15 @@ class ColorsMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(primary, other.primary) && _deepEquals(onPrimary, other.onPrimary) && _deepEquals(background, other.background) && _deepEquals(onBackground, other.onBackground) && _deepEquals(surface, other.surface) && _deepEquals(error, other.error) && _deepEquals(onError, other.onError) && _deepEquals(errorContainer, other.errorContainer) && _deepEquals(onErrorContainer, other.onErrorContainer);
+    return _deepEquals(primary, other.primary) &&
+        _deepEquals(onPrimary, other.onPrimary) &&
+        _deepEquals(background, other.background) &&
+        _deepEquals(onBackground, other.onBackground) &&
+        _deepEquals(surface, other.surface) &&
+        _deepEquals(error, other.error) &&
+        _deepEquals(onError, other.onError) &&
+        _deepEquals(errorContainer, other.errorContainer) &&
+        _deepEquals(onErrorContainer, other.onErrorContainer);
   }
 
   @override
@@ -284,11 +280,7 @@ class ColorsMessage {
 
 /// Theme for the native liveness UI.
 class ThemeMessage {
-  ThemeMessage({
-    required this.mode,
-    this.light,
-    this.dark,
-  });
+  ThemeMessage({required this.mode, this.light, this.dark});
 
   ThemeModeMessage mode;
 
@@ -297,15 +289,12 @@ class ThemeMessage {
   ColorsMessage? dark;
 
   List<Object?> _toList() {
-    return <Object?>[
-      mode,
-      light,
-      dark,
-    ];
+    return <Object?>[mode, light, dark];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static ThemeMessage decode(Object result) {
     result as List<Object?>;
@@ -325,7 +314,9 @@ class ThemeMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(mode, other.mode) && _deepEquals(light, other.light) && _deepEquals(dark, other.dark);
+    return _deepEquals(mode, other.mode) &&
+        _deepEquals(light, other.light) &&
+        _deepEquals(dark, other.dark);
   }
 
   @override
@@ -381,7 +372,8 @@ class StartRequestMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static StartRequestMessage decode(Object result) {
     result as List<Object?>;
@@ -405,7 +397,13 @@ class StartRequestMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(attemptId, other.attemptId) && _deepEquals(sessionId, other.sessionId) && _deepEquals(region, other.region) && _deepEquals(faceMovementCamera, other.faceMovementCamera) && _deepEquals(showStartView, other.showStartView) && _deepEquals(theme, other.theme) && _deepEquals(credentialsTimeoutMillis, other.credentialsTimeoutMillis);
+    return _deepEquals(attemptId, other.attemptId) &&
+        _deepEquals(sessionId, other.sessionId) &&
+        _deepEquals(region, other.region) &&
+        _deepEquals(faceMovementCamera, other.faceMovementCamera) &&
+        _deepEquals(showStartView, other.showStartView) &&
+        _deepEquals(theme, other.theme) &&
+        _deepEquals(credentialsTimeoutMillis, other.credentialsTimeoutMillis);
   }
 
   @override
@@ -443,17 +441,12 @@ class OutcomeMessage {
   String? nativeMessage;
 
   List<Object?> _toList() {
-    return <Object?>[
-      kind,
-      cancelReason,
-      errorCode,
-      nativeCode,
-      nativeMessage,
-    ];
+    return <Object?>[kind, cancelReason, errorCode, nativeCode, nativeMessage];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static OutcomeMessage decode(Object result) {
     result as List<Object?>;
@@ -475,7 +468,11 @@ class OutcomeMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(kind, other.kind) && _deepEquals(cancelReason, other.cancelReason) && _deepEquals(errorCode, other.errorCode) && _deepEquals(nativeCode, other.nativeCode) && _deepEquals(nativeMessage, other.nativeMessage);
+    return _deepEquals(kind, other.kind) &&
+        _deepEquals(cancelReason, other.cancelReason) &&
+        _deepEquals(errorCode, other.errorCode) &&
+        _deepEquals(nativeCode, other.nativeCode) &&
+        _deepEquals(nativeMessage, other.nativeMessage);
   }
 
   @override
@@ -490,24 +487,19 @@ class OutcomeMessage {
 
 /// Result of checkAvailability.
 class AvailabilityMessage {
-  AvailabilityMessage({
-    required this.isAvailable,
-    this.reason,
-  });
+  AvailabilityMessage({required this.isAvailable, this.reason});
 
   bool isAvailable;
 
   UnavailableReasonMessage? reason;
 
   List<Object?> _toList() {
-    return <Object?>[
-      isAvailable,
-      reason,
-    ];
+    return <Object?>[isAvailable, reason];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static AvailabilityMessage decode(Object result) {
     result as List<Object?>;
@@ -526,7 +518,8 @@ class AvailabilityMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(isAvailable, other.isAvailable) && _deepEquals(reason, other.reason);
+    return _deepEquals(isAvailable, other.isAvailable) &&
+        _deepEquals(reason, other.reason);
   }
 
   @override
@@ -567,7 +560,8 @@ class CredentialsMessage {
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static CredentialsMessage decode(Object result) {
     result as List<Object?>;
@@ -588,7 +582,10 @@ class CredentialsMessage {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(accessKeyId, other.accessKeyId) && _deepEquals(secretAccessKey, other.secretAccessKey) && _deepEquals(sessionToken, other.sessionToken) && _deepEquals(expirationEpochSeconds, other.expirationEpochSeconds);
+    return _deepEquals(accessKeyId, other.accessKeyId) &&
+        _deepEquals(secretAccessKey, other.secretAccessKey) &&
+        _deepEquals(sessionToken, other.sessionToken) &&
+        _deepEquals(expirationEpochSeconds, other.expirationEpochSeconds);
   }
 
   @override
@@ -604,24 +601,19 @@ class CredentialsMessage {
 /// Exactly one of credentials or failure is non-null. Native treats any other
 /// combination as a failure.
 class CredentialsResultMessage {
-  CredentialsResultMessage({
-    this.credentials,
-    this.failure,
-  });
+  CredentialsResultMessage({this.credentials, this.failure});
 
   CredentialsMessage? credentials;
 
   CredentialsFailureMessage? failure;
 
   List<Object?> _toList() {
-    return <Object?>[
-      credentials,
-      failure,
-    ];
+    return <Object?>[credentials, failure];
   }
 
   Object encode() {
-    return _toList();  }
+    return _toList();
+  }
 
   static CredentialsResultMessage decode(Object result) {
     result as List<Object?>;
@@ -634,13 +626,15 @@ class CredentialsResultMessage {
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   bool operator ==(Object other) {
-    if (other is! CredentialsResultMessage || other.runtimeType != runtimeType) {
+    if (other is! CredentialsResultMessage ||
+        other.runtimeType != runtimeType) {
       return false;
     }
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(credentials, other.credentials) && _deepEquals(failure, other.failure);
+    return _deepEquals(credentials, other.credentials) &&
+        _deepEquals(failure, other.failure);
   }
 
   @override
@@ -653,7 +647,6 @@ class CredentialsResultMessage {
   }
 }
 
-
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -661,52 +654,52 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    }    else if (value is CameraMessage) {
+    } else if (value is CameraMessage) {
       buffer.putUint8(129);
       writeValue(buffer, value.index);
-    }    else if (value is ThemeModeMessage) {
+    } else if (value is ThemeModeMessage) {
       buffer.putUint8(130);
       writeValue(buffer, value.index);
-    }    else if (value is CancelRequestReasonMessage) {
+    } else if (value is CancelRequestReasonMessage) {
       buffer.putUint8(131);
       writeValue(buffer, value.index);
-    }    else if (value is CancelReasonMessage) {
+    } else if (value is CancelReasonMessage) {
       buffer.putUint8(132);
       writeValue(buffer, value.index);
-    }    else if (value is OutcomeKindMessage) {
+    } else if (value is OutcomeKindMessage) {
       buffer.putUint8(133);
       writeValue(buffer, value.index);
-    }    else if (value is ErrorCodeMessage) {
+    } else if (value is ErrorCodeMessage) {
       buffer.putUint8(134);
       writeValue(buffer, value.index);
-    }    else if (value is UnavailableReasonMessage) {
+    } else if (value is UnavailableReasonMessage) {
       buffer.putUint8(135);
       writeValue(buffer, value.index);
-    }    else if (value is CameraPermissionStatusMessage) {
+    } else if (value is CameraPermissionStatusMessage) {
       buffer.putUint8(136);
       writeValue(buffer, value.index);
-    }    else if (value is CredentialsFailureMessage) {
+    } else if (value is CredentialsFailureMessage) {
       buffer.putUint8(137);
       writeValue(buffer, value.index);
-    }    else if (value is ColorsMessage) {
+    } else if (value is ColorsMessage) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is ThemeMessage) {
+    } else if (value is ThemeMessage) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is StartRequestMessage) {
+    } else if (value is StartRequestMessage) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is OutcomeMessage) {
+    } else if (value is OutcomeMessage) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is AvailabilityMessage) {
+    } else if (value is AvailabilityMessage) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is CredentialsMessage) {
+    } else if (value is CredentialsMessage) {
       buffer.putUint8(143);
       writeValue(buffer, value.encode());
-    }    else if (value is CredentialsResultMessage) {
+    } else if (value is CredentialsResultMessage) {
       buffer.putUint8(144);
       writeValue(buffer, value.encode());
     } else {
@@ -740,7 +733,9 @@ class _PigeonCodec extends StandardMessageCodec {
         return value == null ? null : UnavailableReasonMessage.values[value];
       case 136:
         final value = readValue(buffer) as int?;
-        return value == null ? null : CameraPermissionStatusMessage.values[value];
+        return value == null
+            ? null
+            : CameraPermissionStatusMessage.values[value];
       case 137:
         final value = readValue(buffer) as int?;
         return value == null ? null : CredentialsFailureMessage.values[value];
@@ -769,9 +764,13 @@ class LivenessHostApi {
   /// Constructor for [LivenessHostApi]. The [binaryMessenger] named argument is
   /// available for dependency injection. If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
-  LivenessHostApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
-      : pigeonVar_binaryMessenger = binaryMessenger,
-        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  LivenessHostApi({
+    BinaryMessenger? binaryMessenger,
+    String messageChannelSuffix = '',
+  }) : pigeonVar_binaryMessenger = binaryMessenger,
+       pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty
+           ? '.$messageChannelSuffix'
+           : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
 
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
@@ -780,7 +779,8 @@ class LivenessHostApi {
 
   /// Native SDK linked, camera present, iOS NSCameraUsageDescription set.
   Future<AvailabilityMessage> checkAvailability() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.checkAvailability$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.checkAvailability$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -790,56 +790,60 @@ class LivenessHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as AvailabilityMessage;
   }
 
   /// Runs one attempt: permission pre-check, native UI, result. Replies
   /// exactly once and never with a channel error for runtime failures.
   Future<OutcomeMessage> start(StartRequestMessage request) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.start$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.start$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[request]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[request],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as OutcomeMessage;
   }
 
   /// Ends attempt [attemptId] if it is still active; otherwise no-op.
   Future<void> cancel(int attemptId, CancelRequestReasonMessage reason) async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.cancel$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.cancel$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
       binaryMessenger: pigeonVar_binaryMessenger,
     );
-    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[attemptId, reason]);
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(
+      <Object?>[attemptId, reason],
+    );
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: true,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: true,
+    );
   }
 
   Future<CameraPermissionStatusMessage> getCameraPermissionStatus() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.getCameraPermissionStatus$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.getCameraPermissionStatus$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -849,16 +853,16 @@ class LivenessHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as CameraPermissionStatusMessage;
   }
 
   Future<CameraPermissionStatusMessage> requestCameraPermission() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.requestCameraPermission$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.requestCameraPermission$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -868,17 +872,17 @@ class LivenessHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as CameraPermissionStatusMessage;
   }
 
   /// Opens this app's system settings page. Returns whether it was opened.
   Future<bool> openAppSettings() async {
-    final pigeonVar_channelName = 'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.openAppSettings$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessHostApi.openAppSettings$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -888,11 +892,10 @@ class LivenessHostApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-        pigeonVar_replyList,
-        pigeonVar_channelName,
-        isNullValid: false,
-    )
-    ;
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
     return pigeonVar_replyValue! as bool;
   }
 }
@@ -905,12 +908,20 @@ abstract class LivenessFlutterApi {
   /// Never replies with a channel error; failures are values.
   Future<CredentialsResultMessage> fetchCredentials(int attemptId);
 
-  static void setUp(LivenessFlutterApi? api, {BinaryMessenger? binaryMessenger, String messageChannelSuffix = '',}) {
-    messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
+  static void setUp(
+    LivenessFlutterApi? api, {
+    BinaryMessenger? binaryMessenger,
+    String messageChannelSuffix = '',
+  }) {
+    messageChannelSuffix = messageChannelSuffix.isNotEmpty
+        ? '.$messageChannelSuffix'
+        : '';
     {
       final pigeonVar_channel = BasicMessageChannel<Object?>(
-          'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessFlutterApi.fetchCredentials$messageChannelSuffix', pigeonChannelCodec,
-          binaryMessenger: binaryMessenger);
+        'dev.flutter.pigeon.aws_liveness_for_flutter.LivenessFlutterApi.fetchCredentials$messageChannelSuffix',
+        pigeonChannelCodec,
+        binaryMessenger: binaryMessenger,
+      );
       if (api == null) {
         pigeonVar_channel.setMessageHandler(null);
       } else {
@@ -918,12 +929,16 @@ abstract class LivenessFlutterApi {
           final List<Object?> args = message! as List<Object?>;
           final int arg_attemptId = args[0]! as int;
           try {
-            final CredentialsResultMessage output = await api.fetchCredentials(arg_attemptId);
+            final CredentialsResultMessage output = await api.fetchCredentials(
+              arg_attemptId,
+            );
             return wrapResponse(result: output);
           } on PlatformException catch (e) {
             return wrapResponse(error: e);
-          }          catch (e) {
-            return wrapResponse(error: PlatformException(code: 'error', message: e.toString()));
+          } catch (e) {
+            return wrapResponse(
+              error: PlatformException(code: 'error', message: e.toString()),
+            );
           }
         });
       }

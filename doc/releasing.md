@@ -71,7 +71,7 @@ version is published by hand:
    same environment in the pub.dev automated-publishing settings. The workflow passes
    `environment: pub.dev` to the reusable publisher; creating an environment alone does not
    require approval unless its protection rules are configured.
-4. The local `ci/workflows` branch contains `publish.yml`. It runs on `v*` tags, checks that
+4. The `ci/workflows` PR introduces `publish.yml`. It runs on `v*` tags, checks that
    the tag exactly matches `pubspec.yaml` and that its commit belongs to `main`, then calls
    the [official reusable publishing workflow](https://github.com/dart-lang/setup-dart/blob/v1/.github/workflows/publish.yml).
    Only the publish job receives `id-token: write`; no long-lived pub credentials are stored.
@@ -79,13 +79,15 @@ version is published by hand:
    already running upload.
 5. From then on, a release is: steps 1–8 of the checklist, then pushing the tag.
 
-The workflows are **local drafts**, not successful GitHub runs. Until the owner grants the
-GitHub token's `workflow` scope, keep them on `ci/workflows` and never push that branch or
-merge its workflow files into `main`. Once access is granted, rebase it onto `main`, finish
-review, integrate it and run CI before creating a release tag. The first publication still
-requires the owner's return and explicit approval. iOS Xcode builds and XCTest remain
-UNVERIFIED until the macOS jobs run successfully.
+The first real GitHub runs are tracked in [PR #5](https://github.com/mertcandanzz/aws_liveness_for_flutter/pull/5),
+after the owner granted `workflow` scope. Do not merge the PR or create release tags until
+the required matrix is green. The first publication still requires the owner's explicit
+approval. Linux Swift checks do not establish Apple SDK compatibility; iOS Xcode builds
+and XCTest remain UNVERIFIED until the macOS jobs run successfully.
 
-The initial `PANA_MIN_SCORE` CI gate is 150. Raise it to 160 only after a Linux run proves
-the documentation section: local pana 0.23.12 loses 10 points when dartdoc 9.0.5 crashes,
-despite SDK `dart doc` completing with zero warnings. Do not describe 150/160 as 160/160.
+`PANA_MIN_SCORE` is now 160: Linux run `38730833920`, Dart/Flutter 3.38.x job,
+proved **160/160**, including documentation **20/20** and **94/94** documented API elements.
+The original 150 threshold covered a Windows-only dartdoc 9.0.5 crash under pana 0.23.12;
+that local result must not be confused with the verified Linux score. Formatting is
+enforced with the canonical Flutter 3.38.7 SDK; stable still runs analysis, tests, coverage,
+generation, documentation, pana and publish dry-run, avoiding competing formatter styles.

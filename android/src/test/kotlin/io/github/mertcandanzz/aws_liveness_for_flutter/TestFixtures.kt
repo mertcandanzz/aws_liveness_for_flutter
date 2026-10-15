@@ -14,23 +14,37 @@ internal fun startRequest(
     credentialsTimeoutMillis = credentialsTimeoutMillis,
 )
 
-/** Runs posted tasks at once and keeps delayed tasks until [runDelayed]. */
-internal class FakeScheduler : Scheduler {
+/**
+ * Main-thread stand-in. Posted tasks run at once unless [queuePosts] is set, in which case
+ * they wait for [runPosted]; delayed tasks wait for [runDelayed].
+ */
+internal class FakeScheduler(private val queuePosts: Boolean = false) : Scheduler {
+    val posted = mutableListOf<Runnable>()
     val delayed = mutableListOf<Pair<Runnable, Long>>()
 
-    override fun post(task: Runnable) = task.run()
+    override fun post(task: Runnable) {
+        if (queuePosts) {
+            synchronized(posted) { posted += task }
+        } else {
+            task.run()
+        }
+    }
 
     override fun postDelayed(task: Runnable, delayMillis: Long) {
-        delayed += task to delayMillis
+        synchronized(delayed) { delayed += task to delayMillis }
     }
 
     override fun cancel(task: Runnable) {
-        delayed.removeAll { it.first === task }
+        synchronized(delayed) { delayed.removeAll { it.first === task } }
+    }
+
+    fun runPosted() {
+        val tasks = synchronized(posted) { posted.toList().also { posted.clear() } }
+        tasks.forEach { it.run() }
     }
 
     fun runDelayed() {
-        val tasks = delayed.toList()
-        delayed.clear()
+        val tasks = synchronized(delayed) { delayed.toList().also { delayed.clear() } }
         tasks.forEach { it.first.run() }
     }
 }

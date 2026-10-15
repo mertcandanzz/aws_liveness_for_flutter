@@ -52,6 +52,9 @@ internal class LivenessHostApiImpl(
         try {
             attempt.credentialsProvider = PluginCredentialsProvider(attempt, fetcher, scheduler)
             host.startActivity(LivenessActivity.intent(host, attempt.token))
+            // From now on the result waits until LivenessActivity is destroyed (bounded), so
+            // the host Activity is back in the foreground when Dart sees it.
+            sessions.uiOpened(attempt)
         } catch (e: ActivityNotFoundException) {
             sessions.finish(attempt, failed(ErrorCodeMessage.PRESENTER_UNAVAILABLE, e))
         } catch (e: RuntimeException) {
@@ -81,13 +84,12 @@ internal class LivenessHostApiImpl(
             reply(CameraPermission.status(context, host))
             return
         }
-        if (!permissionRequests.add(reply)) {
-            return
-        }
+        // Null: joined the prompt already on screen.
+        val requestId = permissionRequests.add(reply) ?: return
         try {
-            host.startActivity(CameraPermissionActivity.intent(host))
+            host.startActivity(CameraPermissionActivity.intent(host, requestId))
         } catch (e: RuntimeException) {
-            permissionRequests.complete(CameraPermission.status(context, host))
+            permissionRequests.complete(requestId, CameraPermission.status(context, host))
         }
     }
 
@@ -108,11 +110,15 @@ internal class LivenessHostApiImpl(
         callback(Result.success(opened))
     }
 
-    /** Called when the engine detaches: drop its attempt and close the UI (design §6.9). */
+    /**
+     * Called when the engine detaches: drop its attempts, including a result still waiting for
+     * its UI to close, fail pending credential requests and close the UI (design §6.9).
+     */
     fun dispose() {
-        val dropped = sessions.detachEngine(engineToken) ?: return
-        closeQuietly { dropped.sdkCancel?.invoke() }
-        closeQuietly { dropped.closeUi?.invoke() }
+        sessions.detachEngine(engineToken).forEach { dropped ->
+            closeQuietly { dropped.sdkCancel?.invoke() }
+            closeQuietly { dropped.closeUi?.invoke() }
+        }
     }
 
     private fun isInForeground(host: Activity): Boolean {

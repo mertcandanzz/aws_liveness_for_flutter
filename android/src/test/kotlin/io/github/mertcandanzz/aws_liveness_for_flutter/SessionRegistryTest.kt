@@ -14,15 +14,10 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class SessionRegistryTest {
-    private val mainThreadTasks = mutableListOf<Runnable>()
-    private val registry = SessionRegistry { synchronized(mainThreadTasks) { mainThreadTasks += it } }
+    private val mainThread = FakeScheduler(queuePosts = true)
+    private val registry = SessionRegistry(mainThread)
     private val engineA = Any()
     private val engineB = Any()
-
-    private fun drainMainThread() {
-        val tasks = synchronized(mainThreadTasks) { mainThreadTasks.toList().also { mainThreadTasks.clear() } }
-        tasks.forEach { it.run() }
-    }
 
     @Test
     fun `delivers a result once and only on the main thread`() {
@@ -33,7 +28,7 @@ class SessionRegistryTest {
         assertTrue(delivered.isEmpty(), "delivery waits for the main thread")
         assertFalse(registry.finish(attempt, Outcomes.cancelled(CancelReasonMessage.USER)))
 
-        drainMainThread()
+        mainThread.runPosted()
         assertEquals(listOf(Outcomes.completed()), delivered)
         assertTrue(attempt.isFinished)
     }
@@ -62,7 +57,7 @@ class SessionRegistryTest {
         pool.shutdown()
         assertTrue(pool.awaitTermination(10, TimeUnit.SECONDS))
 
-        drainMainThread()
+        mainThread.runPosted()
         assertEquals(1, wins.get())
         assertEquals(1, deliveries.get())
     }
@@ -87,7 +82,7 @@ class SessionRegistryTest {
             },
         )
         registry.finish(first, Outcomes.completed())
-        drainMainThread()
+        mainThread.runPosted()
         assertNotNull(startedFromDelivery)
     }
 
@@ -107,24 +102,121 @@ class SessionRegistryTest {
     }
 
     @Test
+    fun `fast restart - the result waits until the liveness UI is gone`() {
+        val delivered = mutableListOf<OutcomeMessage>()
+        val first = assertNotNull(registry.begin(engineA, startRequest(attemptId = 1)) { delivered += it })
+        registry.uiOpened(first)
+
+        registry.finish(first, Outcomes.cancelled(CancelReasonMessage.USER))
+        mainThread.runPosted()
+        assertTrue(delivered.isEmpty(), "the host Activity is not back in the foreground yet")
+        assertNotNull(registry.begin(engineB, startRequest()) {}.also { registry.detachEngine(engineB) },
+            "the slot is free at once")
+
+        registry.uiClosed(first.token)
+        mainThread.runPosted()
+        assertEquals(listOf(Outcomes.cancelled(CancelReasonMessage.USER)), delivered)
+        assertTrue(mainThread.delayed.isEmpty(), "grace timer is cancelled")
+
+        val second = assertNotNull(registry.begin(engineA, startRequest(attemptId = 2)) {}, "restart from delivery")
+        assertNotEquals(first.token, second.token)
+    }
+
+    @Test
+    fun `grace timer delivers when the UI never reports closing`() {
+        val delivered = mutableListOf<OutcomeMessage>()
+        val attempt = assertNotNull(registry.begin(engineA, startRequest()) { delivered += it })
+        registry.uiOpened(attempt)
+        registry.finish(attempt, Outcomes.completed())
+
+        assertEquals(listOf(SessionRegistry.DELIVERY_GRACE_MILLIS), mainThread.delayed.map { it.second })
+        assertTrue(SessionRegistry.DELIVERY_GRACE_MILLIS <= 3_000)
+        mainThread.runDelayed()
+        mainThread.runPosted()
+        registry.uiClosed(attempt.token)
+        mainThread.runPosted()
+
+        assertEquals(listOf(Outcomes.completed()), delivered)
+    }
+
+    @Test
+    fun `a UI that closes before the result makes delivery immediate`() {
+        val delivered = mutableListOf<OutcomeMessage>()
+        val attempt = assertNotNull(registry.begin(engineA, startRequest()) { delivered += it })
+        registry.uiOpened(attempt)
+        registry.uiClosed(attempt.token)
+
+        registry.finish(attempt, Outcomes.completed())
+        mainThread.runPosted()
+        assertEquals(listOf(Outcomes.completed()), delivered)
+        assertTrue(mainThread.delayed.isEmpty())
+    }
+
+    @Test
     fun `engine detach drops its attempt without a result`() {
         var delivered = 0
         val attempt = assertNotNull(registry.begin(engineA, startRequest()) { delivered++ })
 
-        assertNull(registry.detachEngine(engineB), "another engine's detach is ignored")
-        assertSame(attempt, registry.detachEngine(engineA))
-        assertNull(registry.detachEngine(engineA), "second detach is a no-op")
+        assertTrue(registry.detachEngine(engineB).isEmpty(), "another engine's detach is ignored")
+        assertEquals(listOf(attempt), registry.detachEngine(engineA))
+        assertTrue(registry.detachEngine(engineA).isEmpty(), "second detach is a no-op")
         assertFalse(registry.finish(attempt, Outcomes.completed()), "late SDK results are dropped")
 
-        drainMainThread()
+        mainThread.runPosted()
         assertEquals(0, delivered)
         assertNotNull(registry.begin(engineB, startRequest()) {}, "slot is free again")
+    }
+
+    @Test
+    fun `finish, detach, UI destroyed, grace elapses - nothing is sent (iOS P1 parity)`() {
+        var delivered = 0
+        val attempt = assertNotNull(registry.begin(engineA, startRequest()) { delivered++ })
+        registry.uiOpened(attempt)
+        registry.finish(attempt, Outcomes.completed())
+
+        assertEquals(listOf(attempt), registry.detachEngine(engineA), "a result waiting for the UI is dropped")
+        assertTrue(mainThread.delayed.isEmpty(), "grace timer is cancelled")
+        registry.uiClosed(attempt.token)
+        mainThread.runDelayed()
+        mainThread.runPosted()
+
+        assertEquals(0, delivered)
+    }
+
+    @Test
+    fun `detach after a delivery was posted suppresses it`() {
+        var delivered = 0
+        val attempt = assertNotNull(registry.begin(engineA, startRequest()) { delivered++ })
+        registry.finish(attempt, Outcomes.completed())
+
+        registry.detachEngine(engineA)
+        mainThread.runPosted()
+
+        assertEquals(0, delivered)
     }
 
     @Test
     fun `detach after the result was delivered returns nothing`() {
         val attempt = assertNotNull(registry.begin(engineA, startRequest()) {})
         registry.finish(attempt, Outcomes.completed())
-        assertNull(registry.detachEngine(engineA))
+        mainThread.runPosted()
+        assertTrue(registry.detachEngine(engineA).isEmpty())
+    }
+
+    @Test
+    fun `end listeners run once on finish or detach, and late listeners are refused`() {
+        val first = assertNotNull(registry.begin(engineA, startRequest(attemptId = 1)) {})
+        var ended = 0
+        assertTrue(first.addEndListener { ended++ })
+        registry.finish(first, Outcomes.completed())
+        registry.finish(first, Outcomes.completed())
+        assertEquals(1, ended)
+        assertFalse(first.addEndListener { ended++ })
+
+        val second = assertNotNull(registry.begin(engineA, startRequest(attemptId = 2)) {})
+        var detached = 0
+        second.addEndListener { detached++ }
+        registry.detachEngine(engineA)
+        assertEquals(1, detached)
     }
 }

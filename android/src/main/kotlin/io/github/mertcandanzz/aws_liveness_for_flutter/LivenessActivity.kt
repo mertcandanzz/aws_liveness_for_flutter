@@ -44,6 +44,7 @@ import com.amplifyframework.ui.liveness.ui.LivenessChallenge
  */
 class LivenessActivity : ComponentActivity() {
     private var attempt: ActiveAttempt? = null
+    private var attemptToken = NO_TOKEN
     private var isPermissionGranted by mutableStateOf(false)
     private var sdkCancel by mutableStateOf<(() -> Unit)?>(null)
     private val closeUi: () -> Unit = { runOnUiThread { if (!isFinishing) finish() } }
@@ -56,19 +57,21 @@ class LivenessActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        val found = Shared.sessions.find(intent.getLongExtra(EXTRA_TOKEN, NO_TOKEN))
+        attemptToken = intent.getLongExtra(EXTRA_TOKEN, NO_TOKEN)
+        val found = Shared.sessions.find(attemptToken)
         if (found == null) {
-            // Process death or an attempt that already ended: nobody waits for a result.
+            // Process death or an attempt that already ended: nobody waits for a result, but
+            // an ended attempt's result may wait for this screen to go (onDestroy).
             finish()
             return
         }
+        attempt = found
         if (savedInstanceState != null) {
             // Recreated with the Dart side still waiting; the SDK session state is gone.
             Shared.sessions.finish(found, interrupted("ActivityRecreated"))
             finish()
             return
         }
-        attempt = found
         found.closeUi = closeUi
         setContent { LivenessScreen(found) }
         if (CameraPermission.isGranted(this)) {
@@ -95,6 +98,10 @@ class LivenessActivity : ComponentActivity() {
             if (!isChangingConfigurations) {
                 Shared.sessions.finish(current, interrupted("ActivityDestroyed"))
             }
+        }
+        if (!isChangingConfigurations) {
+            // The host Activity is in front again: release a result waiting for this screen.
+            Shared.sessions.uiClosed(attemptToken)
         }
         super.onDestroy()
     }

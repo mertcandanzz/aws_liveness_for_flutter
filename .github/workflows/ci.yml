@@ -74,8 +74,8 @@ jobs:
           grep -F 'Found 0 warnings and 0 errors.' "$RUNNER_TEMP/dartdoc.log"
       - name: Enforce pana score on an isolated source snapshot
         run: bash .github/scripts/check_pana.sh
-      - name: Validate the pub archive without publishing
-        run: flutter pub publish --dry-run
+      - name: Validate the committed pub archive without publishing
+        run: bash .github/scripts/check_publish.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:

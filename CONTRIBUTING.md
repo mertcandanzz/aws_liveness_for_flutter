@@ -1,5 +1,35 @@
 # Contributing
 
+## CI drafts and local checks
+
+CI workflows are being prepared on the **local-only** `ci/workflows` branch. Do not push
+that branch or add `.github/workflows` to `main` until the owner grants `workflow` scope.
+No successful GitHub execution is claimed; iOS Xcode builds and XCTest are UNVERIFIED.
+See [releasing.md](doc/releasing.md) for the separate first-publication and OIDC setup gates.
+
+On that branch, validate workflow YAML with `actionlint` and run its small gate tests:
+
+```sh
+docker run --rm -v "$PWD:/repo:ro" -w /repo rhysd/actionlint:latest
+python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
+```
+
+The CI matrices cover Flutter 3.38.7 and stable (Dart and iOS SPM), host Kotlin 2.1.0 and
+2.2.20, Node 22.13.0 and 24, and Swift 5.10 and 6.1 for the platform-free Linux checks.
+The example and Cognito snippet have their own Flutter tests. Device/AWS integration
+tests are separate and remain PENDING.
+
+The Pigeon check temporarily overrides only the generator to 27.3.0, regenerates all
+three outputs, formats the Dart output, then restores dependency resolution. This keeps
+stable Dart from silently choosing a newer 27.x generator. For a deliberate generator
+upgrade, update the script and regenerate the committed outputs together. The published
+package dependency constraint is unchanged.
+
+The Linux Swift job sets `AWS_LIVENESS_EXPECT_SDK=0` and the Docker harness forwards it to
+XCTest. macOS jobs set `TEST_RUNNER_AWS_LIVENESS_EXPECT_SDK=1` for SPM and `0` for CocoaPods;
+`xcodebuild` forwards the unprefixed variable to the test runner. Missing SDK assertions
+must not be counted as passes.
+
 Thanks for helping. Bug reports, fixes and documentation improvements are welcome.
 
 ## Before you start

@@ -67,8 +67,25 @@ version is published by hand:
 1. On pub.dev, package **Admin** → **Automated publishing** → enable
    **Publishing from GitHub Actions**.
 2. Repository: `mertcandanzz/aws_liveness_for_flutter`; tag pattern: `v{{version}}`.
-3. Optionally require a GitHub environment (for example `pub.dev`) with required reviewers.
-4. The `publish.yml` workflow runs on `v*` tags and publishes with GitHub's OIDC token; no
-   long-lived pub credentials are stored in the repository. (The workflow is part of the CI
-   setup, which is not in `main` yet.)
+3. Create the GitHub environment `pub.dev`, configure required reviewers, and require that
+   same environment in the pub.dev automated-publishing settings. The workflow passes
+   `environment: pub.dev` to the reusable publisher; creating an environment alone does not
+   require approval unless its protection rules are configured.
+4. The local `ci/workflows` branch contains `publish.yml`. It runs on `v*` tags, checks that
+   the tag exactly matches `pubspec.yaml` and that its commit belongs to `main`, then calls
+   the [official reusable publishing workflow](https://github.com/dart-lang/setup-dart/blob/v1/.github/workflows/publish.yml).
+   Only the publish job receives `id-token: write`; no long-lived pub credentials are stored.
+   The reusable workflow owns its job timeout. Publication concurrency does not cancel an
+   already running upload.
 5. From then on, a release is: steps 1–8 of the checklist, then pushing the tag.
+
+The workflows are **local drafts**, not successful GitHub runs. Until the owner grants the
+GitHub token's `workflow` scope, keep them on `ci/workflows` and never push that branch or
+merge its workflow files into `main`. Once access is granted, rebase it onto `main`, finish
+review, integrate it and run CI before creating a release tag. The first publication still
+requires the owner's return and explicit approval. iOS Xcode builds and XCTest remain
+UNVERIFIED until the macOS jobs run successfully.
+
+The initial `PANA_MIN_SCORE` CI gate is 150. Raise it to 160 only after a Linux run proves
+the documentation section: local pana 0.23.12 loses 10 points when dartdoc 9.0.5 crashes,
+despite SDK `dart doc` completing with zero warnings. Do not describe 150/160 as 160/160.

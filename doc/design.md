@@ -497,6 +497,12 @@ Package `io.github.mertcandanzz.aws_liveness_for_flutter`, under `android/src/ma
   - `<uses-feature android:name="android.hardware.camera" android:required="false"/>` and
     the same for `android.hardware.camera.front`. Without these, the CAMERA permission
     implies a required camera and Google Play filters the host app;
+  - `android.hardware.camera.any` with `required="false"` and
+    `tools:replace="android:required"`: `liveness` 1.12.0 declares it without `required`
+    (meaning true), and the merger keeps true over false. The example app's
+    `verify<Variant>CameraFeatures` task fails the build if the merged manifest requires any
+    `android.hardware.camera*` feature (`aapt2 dump badging` on the release APK shows all
+    three as `uses-feature-not-required`);
   - both activities `exported="false"` and `excludeFromRecents="true"`;
   - `configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection"`;
   - a no-action-bar theme.

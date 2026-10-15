@@ -2,9 +2,10 @@
 
 ## CI drafts and local checks
 
-CI workflows are being prepared on the **local-only** `ci/workflows` branch. Do not push
-that branch or add `.github/workflows` to `main` until the owner grants `workflow` scope.
-No successful GitHub execution is claimed; iOS Xcode builds and XCTest are UNVERIFIED.
+CI workflows are introduced by [PR #5](https://github.com/mertcandanzz/aws_liveness_for_flutter/pull/5)
+from `ci/workflows`, after `workflow` scope was granted. Check its actual job results;
+do not merge while required jobs are failing. iOS Xcode builds and XCTest are UNVERIFIED
+until their macOS jobs pass; Linux Swift results alone do not verify the Apple adapters.
 See [releasing.md](doc/releasing.md) for the separate first-publication and OIDC setup gates.
 
 On that branch, validate workflow YAML with `actionlint` and run its small gate tests:
@@ -18,6 +19,11 @@ The CI matrices cover Flutter 3.38.7 and stable (Dart and iOS SPM), host Kotlin 
 2.2.20, Node 22.13.0 and 24, and Swift 5.10 and 6.1 for the platform-free Linux checks.
 The example and Cognito snippet have their own Flutter tests. Device/AWS integration
 tests are separate and remain PENDING.
+
+Formatting uses only the canonical Flutter 3.38.7 formatter. Both matrix entries still
+run analysis and tests; a newer SDK's formatter can otherwise request a different layout
+for already formatted source. The pana gate is 160 after the first Linux run proved
+160/160 with all 94 public API elements documented.
 
 The Pigeon check temporarily overrides only the generator to 27.3.0, regenerates all
 three outputs, formats the Dart output, then restores dependency resolution. This keeps

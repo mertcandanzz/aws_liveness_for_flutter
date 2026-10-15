@@ -1,4 +1,4 @@
-# Local-only until workflow scope is granted; no GitHub execution has been verified.
+# First GitHub runs are tracked in PR #5; do not infer Apple verification from Linux.
 name: CI
 
 on:
@@ -20,8 +20,8 @@ defaults:
 
 env:
   COVERAGE_MIN: '95'
-  # Raise to 160 after Linux proves the dartdoc section; see the open P6 P2 card.
-  PANA_MIN_SCORE: '150'
+  # Linux run 38730833920 proved 160/160, including documentation 20/20 (94/94).
+  PANA_MIN_SCORE: '160'
   FLUTTER_SUPPRESS_ANALYTICS: 'true'
 
 jobs:
@@ -52,7 +52,11 @@ jobs:
       - name: Resolve the nested snippet before repository-wide analysis
         working-directory: examples/cognito/flutter_client
         run: flutter pub get
-      - run: dart format --output=none --set-exit-if-changed .
+      - name: Enforce the canonical minimum-SDK formatter
+        # Format once with the same SDK that produced the committed source. New SDK
+        # formatter changes are independent of runtime/analyzer compatibility.
+        if: matrix.label == '3.38.x'
+        run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze --fatal-infos
       - run: flutter test --coverage
       - name: Enforce handwritten Dart line coverage
@@ -105,6 +109,10 @@ jobs:
           flutter-version: 3.38.7
           cache: true
       - uses: android-actions/setup-android@v3
+        with:
+          # The action defaults to the removed legacy 'tools' package.
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: Select host Kotlin (the plugin reads this version)
         env:

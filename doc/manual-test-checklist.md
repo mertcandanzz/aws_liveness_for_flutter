@@ -1,14 +1,14 @@
 # Manual test checklist
 
-Run on real devices before a release. Nothing on this list has been run yet: every row is
-**PENDING**. Record the date, device, OS version, plugin commit and the observed result
-when you run an item; never mark an item as passed without running it.
+Run on real devices before a release. Only the explicitly dated results below have been
+run; all other checks remain **PENDING**. Record the date, device, OS version, plugin commit
+and observed result for each run; never infer a device pass from a build or mock test.
 
-- Android device: Samsung Galaxy S25 Ultra (planned).
+- Android device: Samsung Galaxy S25 Ultra (`SM-S938B`), Android 17; first run 2026-10-15.
 - iOS device: none available yet. iOS rows stay PENDING until a device run exists; macOS CI
   covers only the build and unit tests.
 
-Setup: run [`examples/backend-express`](../examples/backend-express), forward the port with
+For the AWS-dependent rows, run [`examples/backend-express`](../examples/backend-express), forward the port with
 `adb reverse tcp:8787 tcp:8787` and use the [example app](../example). Use a new session for
 every row.
 
@@ -16,13 +16,13 @@ every row.
 
 | # | Check | Expected | Android | iOS |
 |---|---|---|---|---|
-| A1 | `checkAvailability()` | available, no reason | PENDING | PENDING |
-| A2 | Camera permission revoked and set to "don't ask again" | `cameraPermissionPermanentlyDenied` | PENDING | PENDING |
+| A1 | `checkAvailability()` | available, no reason | PASS — 2026-10-15, step 1 | PENDING |
+| A2 | Camera permission revoked and set to "don't ask again" | `cameraPermissionPermanentlyDenied` | PASS — 2026-10-15, ADB revoke + user-fixed | PENDING |
 | A3 | Unknown session id | `sessionNotFound` | PENDING | PENDING |
 | A4 | Invalid or expired credentials | `accessDenied` or `invalidSignature` | PENDING | PENDING |
-| A5 | Credentials provider throws | `credentialsUnavailable`, `cause` is the thrown object | PENDING | PENDING |
-| A6 | `cancel()` during the check | `LivenessCancelled(app)` | PENDING | PENDING |
-| A7 | `timeout` elapses | `LivenessFailed(timedOut)` | PENDING | PENDING |
+| A5 | Credentials provider throws | `credentialsUnavailable`, `cause` is the thrown object | PASS — 2026-10-15, dummy session, throwing provider | PENDING |
+| A6 | `cancel()` during the check | `LivenessCancelled(app)` | PASS — 2026-10-15, start view, no credentials | PENDING |
+| A7 | `timeout` elapses | `LivenessFailed(timedOut)` | PASS — 2026-10-15, 5 s timeout, start view | PENDING |
 
 ## Manual (needs a person and a real face)
 
@@ -53,4 +53,45 @@ every row.
 
 | Date | Device / OS | Commit | Rows | Notes |
 |---|---|---|---|---|
-| — | — | — | — | No runs yet |
+| 2026-10-15 | Galaxy S25 Ultra / SM-S938B / Android 17 | `3079c45f7f50c9fe7262cdaa8a74d1105a7c055d` | A1, A2, A5, A6, A7 | PASS; real device, no backend or AWS session. A3/A4 skipped: backend URL/token not configured. |
+| 2026-10-15 | Same device and source revision | `3079c45` | S1/S2 below | PASS; temporary start-view probe and host ADB controls. Does not complete the physical-rotation/full-check/close-button rows M4/M5/M9. |
+
+### P8 step 1: start-view probes (no AWS)
+
+Device serial: `R5GYC5D549Z`, in ADB `device` state. Source tree was clean at the
+recorded revision. The normal example debug APK was built and installed successfully.
+
+| ID | Actual action | Observed result | Android | iOS |
+|---|---|---|---|---|
+| S1 | While the native start view was open, request 90-degree rotation using `adb shell wm user-rotation lock 1`, then restore portrait and the original rotation settings | Portrait remained enforced; client `Local Activity d242fe6` and PID 22082 were unchanged, resumed and not finishing before/after; no Activity recreation observed | PASS | PENDING |
+| S2 | Send Android Back with `adb shell input keyevent KEYCODE_BACK` on the native start view | `LivenessCancelled(user)`; `AwsLiveness.isActive == false` | PASS | PENDING |
+
+The ordinary integration file ran twice without backend URL/token defines:
+
+- With camera permission revoked and `user-fixed` set, using
+  `--dart-define=EXPECT_CAMERA_PERMANENTLY_DENIED=true`: 2 passed, 5 skipped, 0 failed.
+  A2 asserted the exact error code and the `permission` category. Other camera tests
+  skipped explicitly because permission was not granted.
+- After reinstalling the APK and granting camera permission with ADB, without that
+  define: 4 passed, 3 skipped, 0 failed. A1/A5/A6/A7 passed; A2 was disabled for this
+  phase and A3/A4 skipped explicitly because backend URL/token were unset.
+- A separate temporary integration probe for S1/S2 passed (1 test). It used a dummy
+  session, `showStartView: true` and a credentials provider that never resolves.
+  Its source and filtered dumpsys output are retained in local QA evidence; it was
+  removed from the working tree after the run. No successful liveness result was faked.
+
+Reproduction for the two ordinary phases: run from `example/` with
+`flutter test integration_test/liveness_test.dart -d R5GYC5D549Z --reporter expanded`,
+adding the permission define for the first phase. Reinstall before setting permissions
+between runs: this host's Flutter integration runner removes the app during teardown.
+No system permission dialog or user face input was needed.
+
+Only package-filtered ActivityTaskManager lines and AndroidRuntime crash lines were
+requested from logcat; the retained filtered output was empty (no matching crash
+observed). Rotation settings were restored to `accelerometer_rotation=1` and
+`user_rotation=0`. `stay_on_while_plugged_in` was **3** before and after this step and
+was not changed; reset it to 0 at the end of P8, not at the end of this step.
+
+Backend/AWS checks, real-face checks, all remaining manual rows and every iOS device
+row remain PENDING. Step 1 does not establish release/R8 behaviour or an end-to-end
+liveness decision. Local evidence: `build/qa-p8-step1/` (gitignored).

@@ -1,3 +1,4 @@
-## 0.0.1
+## 0.0.1 - Unreleased
 
-* TODO: Describe initial release.
+* Initial plugin scaffold for Android and iOS (Swift Package Manager layout,
+  CocoaPods fallback). No public API yet.

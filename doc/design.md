@@ -404,9 +404,11 @@ second line of defence.
 
 1. **One active session per process.** Within an isolate, a second `start` throws
    `StateError`. Across engines, a process-wide native registry with a single slot answers
-   `alreadyActive`. The slot is released when the result is delivered, so a new `start`
-   may begin while the old UI is still animating out. On iOS the result is delivered from
-   the dismissal completion handler, so the next presentation starts cleanly.
+   `alreadyActive`. The slot is released as soon as the attempt finishes, but the result
+   waits until the liveness UI is gone, at most 3 seconds, so an immediate next `start`
+   finds the host in the foreground. On iOS the result is delivered from the dismissal
+   completion handler; on Android from `LivenessActivity.onDestroy` (`SessionRegistry
+   .uiClosed`), with a 3-second grace timer as the fallback.
 2. **Exactly-once delivery.** Three guards: the native registry flag, the Dart completer
    and `attemptId`.
 3. **Timeout.**
@@ -452,7 +454,12 @@ second line of defence.
    `onDestroy` delivers `sessionInterrupted` for any attempt that is still open, so every
    way out of the Activity produces exactly one result.
 9. **Engine detach.** The owning engine's attempt is cancelled, its UI closed and its
-   result dropped. Pending credential requests fail.
+   result dropped, including a result that already finished and is waiting for the UI to
+   close or is queued for the main thread; its grace timer is cancelled. Pending credential
+   requests fail at once and their late Dart replies are dropped. A credential reply that
+   arrives after the attempt finished is never handed to the SDK.
+   - Android: camera permission prompts carry a request id, so a late callback from an
+     older `CameraPermissionActivity` cannot answer a newer `requestCameraPermission()`.
 10. **No foreground UI.** If Android has no attached Activity, or iOS finds no view
     controller in a foreground-active scene, the result is `presenterUnavailable`.
 11. **Camera interruptions.** If another app takes the camera, or a call arrives, the

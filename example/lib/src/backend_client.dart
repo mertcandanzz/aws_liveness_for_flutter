@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:aws_liveness_for_flutter/aws_liveness_for_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+import 'url_policy.dart';
 
 /// Challenge the backend may create the session with.
 enum LivenessChallenge {
@@ -50,19 +53,30 @@ class BackendException implements Exception {
 
 /// Talks to `examples/backend-express`. The app never decides liveness
 /// itself; it only shows the backend's decision.
+///
+/// Throws [BackendException] with code `insecure_url` from the constructor,
+/// before any request, unless [baseUrl] passes [isAllowedBackendUrl]:
+/// `https`, or `http` on loopback when [allowInsecureLoopback] is true (by
+/// default only in debug builds). Redirects are never followed, so a
+/// response cannot move the token or credentials to another URL.
 class BackendClient {
   BackendClient({
     required Uri baseUrl,
     required String token,
     http.Client? httpClient,
+    bool allowInsecureLoopback = kDebugMode,
   }) : _baseUrl = baseUrl,
        _token = token,
-       _http = httpClient ?? http.Client();
+       _allowInsecureLoopback = allowInsecureLoopback,
+       _http = httpClient ?? http.Client() {
+    _checked(baseUrl);
+  }
 
   static const _timeout = Duration(seconds: 15);
 
   final Uri _baseUrl;
   final String _token;
+  final bool _allowInsecureLoopback;
   final http.Client _http;
 
   /// Creates a single-use session. [challenge] is sent only when set; the
@@ -94,10 +108,8 @@ class BackendClient {
   /// Reads the backend's decision for [sessionId].
   Future<BackendDecision> fetchResult(String sessionId) async {
     final body = await _send(
-      _http.get(
-        _baseUrl.resolve('liveness/sessions/$sessionId/result'),
-        headers: _headers,
-      ),
+      'GET',
+      'liveness/sessions/${Uri.encodeComponent(sessionId)}/result',
     );
     final isLive = body['isLive'];
     final confidence = body['confidence'];
@@ -114,28 +126,52 @@ class BackendClient {
   /// Releases the HTTP connection pool.
   void close() => _http.close();
 
-  Map<String, String> get _headers => {
-    'Authorization': 'Bearer $_token',
-    'Content-Type': 'application/json',
-  };
-
   Future<Map<String, Object?>> _post(String path, Map<String, Object?> body) =>
-      _send(
-        _http.post(
-          _baseUrl.resolve(path),
-          headers: _headers,
-          body: jsonEncode(body),
-        ),
-      );
+      _send('POST', path, body: body);
 
-  Future<Map<String, Object?>> _send(Future<http.Response> request) async {
+  /// Returns [uri] if the transport policy allows it; throws otherwise.
+  Uri _checked(Uri uri) {
+    if (!isAllowedBackendUrl(
+      uri,
+      allowInsecureLoopback: _allowInsecureLoopback,
+    )) {
+      throw const BackendException('insecure_url');
+    }
+    return uri;
+  }
+
+  /// The only place that sends a request. The URL is checked first and
+  /// redirects are disabled, so every byte goes to an allowed URL.
+  Future<Map<String, Object?>> _send(
+    String method,
+    String path, {
+    Map<String, Object?>? body,
+  }) async {
+    final request = http.Request(method, _checked(_baseUrl.resolve(path)))
+      ..followRedirects = false
+      ..headers['Authorization'] = 'Bearer $_token';
+    if (body != null) {
+      request
+        ..headers['Content-Type'] = 'application/json'
+        ..body = jsonEncode(body);
+    }
+
     final http.Response response;
     try {
-      response = await request.timeout(_timeout);
+      response = await _http
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(_timeout);
     } on TimeoutException {
       throw const BackendException('timeout');
     } on http.ClientException {
       throw const BackendException('network');
+    }
+    if (response.statusCode >= 300 && response.statusCode < 400) {
+      throw BackendException(
+        'redirect_not_allowed',
+        statusCode: response.statusCode,
+      );
     }
     final Object? decoded;
     try {

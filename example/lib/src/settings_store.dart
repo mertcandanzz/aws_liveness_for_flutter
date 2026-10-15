@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'url_policy.dart';
 
 /// Backend connection settings entered by the user.
 class BackendSettings {
@@ -14,7 +17,27 @@ class BackendSettings {
   final String url;
   final String token;
 
-  bool get isComplete => parsedUrl != null && token.isNotEmpty;
+  /// True when the URL is allowed for this build and a token is set.
+  bool get isComplete => isCompleteFor(allowInsecureLoopback: kDebugMode);
+
+  /// True when the URL parses but the transport policy rejects it, for
+  /// example `http://` in a release build.
+  bool get isInsecure => isInsecureFor(allowInsecureLoopback: kDebugMode);
+
+  /// [isComplete] with an explicit policy, for tests.
+  bool isCompleteFor({required bool allowInsecureLoopback}) {
+    final uri = parsedUrl;
+    return uri != null &&
+        token.isNotEmpty &&
+        isAllowedBackendUrl(uri, allowInsecureLoopback: allowInsecureLoopback);
+  }
+
+  /// [isInsecure] with an explicit policy, for tests.
+  bool isInsecureFor({required bool allowInsecureLoopback}) {
+    final uri = parsedUrl;
+    return uri != null &&
+        !isAllowedBackendUrl(uri, allowInsecureLoopback: allowInsecureLoopback);
+  }
 
   /// The URL with a trailing slash, so relative paths resolve under it.
   Uri? get parsedUrl {

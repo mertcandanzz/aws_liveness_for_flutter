@@ -175,6 +175,48 @@ final class SessionCoordinatorTests: XCTestCase {
     XCTAssertTrue(outcomes.isEmpty)
   }
 
+  /// Review P1: a detach while the UI is closing must suppress the pending result.
+  @MainActor
+  func testDetachWhileClosingSuppressesTheDismissalDelivery() async {
+    let scheduler = ManualScheduler()
+    let sessions = SessionCoordinator(scheduler: scheduler)
+    let engine = Engine()
+    var outcomes: [OutcomeMessage] = []
+    let attempt = XCTUnwrapAttempt(
+      sessions.begin(engine: engine, request: makeRequest()) { outcomes.append($0) })
+    var dismissal: (@MainActor () -> Void)?
+    attempt.closeUI = { dismissal = $0 }
+
+    sessions.finish(attempt, with: Outcomes.completed())
+    sessions.detach(engine: engine)
+    dismissal?()
+    scheduler.advance(by: SessionCoordinator.dismissalGrace)
+
+    XCTAssertTrue(outcomes.isEmpty)
+    XCTAssertNil(sessions.active)
+    XCTAssertEqual(scheduler.pendingCount, 0)
+  }
+
+  @MainActor
+  func testDetachWhileClosingCancelsTheGraceTimer() async {
+    let scheduler = ManualScheduler()
+    let sessions = SessionCoordinator(scheduler: scheduler)
+    let engine = Engine()
+    var outcomes: [OutcomeMessage] = []
+    let attempt = XCTUnwrapAttempt(
+      sessions.begin(engine: engine, request: makeRequest()) { outcomes.append($0) })
+    attempt.closeUI = { _ in }
+
+    sessions.end(attempt, with: Outcomes.failed(.timedOut))
+    sessions.detach(engine: engine)
+
+    XCTAssertEqual(scheduler.pendingCount, 0)
+    scheduler.advance(by: SessionCoordinator.dismissalGrace * 2)
+    XCTAssertTrue(outcomes.isEmpty)
+    XCTAssertNil(sessions.active)
+    XCTAssertNotNil(sessions.begin(engine: Engine(), request: makeRequest(attemptId: 2)) { _ in })
+  }
+
   @MainActor
   func testLookupIsScopedToTheEngineAndAttempt() async {
     let sessions = SessionCoordinator(scheduler: ManualScheduler())
@@ -636,6 +678,45 @@ final class LivenessHostTests: XCTestCase {
     fixture.presenter.events?.completed()
 
     XCTAssertEqual(fixture.presenter.closeCount, 1)
+    XCTAssertTrue(fixture.outcomes.isEmpty)
+    XCTAssertNil(fixture.sessions.active)
+  }
+
+  @MainActor
+  func testDisposeResolvesAPendingCredentialRequestAndRepliesNothing() async throws {
+    let fixture = Fixture()
+    fixture.start()
+    let credentials = try XCTUnwrap(fixture.presenter.credentials)
+    let request = Task { @MainActor in try await credentials.fetch() }
+    while fixture.dart.requests.isEmpty {
+      await Task.yield()
+    }
+
+    fixture.host.dispose()
+
+    do {
+      _ = try await request.value
+      XCTFail("expected the credential request to fail")
+    } catch let error as CredentialsUnavailableError {
+      XCTAssertEqual(error.reason, .attemptEnded)
+    }
+    fixture.dart.reply(.success(validCredentials()))
+    fixture.presenter.events?.failed(SdkError(code: 7, message: "socket closed"))
+    fixture.presenter.finishDismissal()
+    fixture.scheduler.advance(by: SessionCoordinator.dismissalGrace)
+    XCTAssertTrue(fixture.outcomes.isEmpty)
+  }
+
+  @MainActor
+  func testDisposeWhileClosingRepliesNothing() async {
+    let fixture = Fixture()
+    fixture.start()
+
+    fixture.host.cancel(attemptId: 1, reason: .app)
+    fixture.host.dispose()
+    fixture.presenter.finishDismissal()
+    fixture.scheduler.advance(by: SessionCoordinator.dismissalGrace)
+
     XCTAssertTrue(fixture.outcomes.isEmpty)
     XCTAssertNil(fixture.sessions.active)
   }

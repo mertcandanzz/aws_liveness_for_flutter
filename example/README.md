@@ -16,7 +16,17 @@ decision. The app never decides liveness itself.
 
 The app contains no AWS keys, identity pool ids or backend URLs. Values entered in the
 app are stored with `shared_preferences`, which is plain storage: use demo tokens only.
-Debug builds allow cleartext HTTP so `localhost` works; release builds need HTTPS.
+
+The backend call carries the bearer token and returns AWS credentials, so the app
+enforces HTTPS itself in `BackendClient` (Dart's HTTP client does not follow Android's
+cleartext setting):
+
+- Release builds accept only `https://` URLs.
+- Debug builds also accept `http://` for `localhost`, `127.0.0.1` and `::1`, which is
+  what `adb reverse` gives you. Any other `http://` URL, including a LAN address, is
+  rejected before a request is sent.
+- Redirects are never followed; a `3xx` response is reported as
+  `redirect_not_allowed`, so a response cannot downgrade the connection.
 
 The native liveness screen follows the device language; the language switch only
 changes the example's own text.

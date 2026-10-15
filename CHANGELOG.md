@@ -26,8 +26,9 @@ First release. Not yet published to pub.dev.
   1.12.0; plugin strings in English and Turkish.
 - iOS host on `amplify-ui-swift-liveness` 1.5.1 through Swift Package Manager; CocoaPods
   builds compile without the SDK and report `sdkUnavailable`.
-- Example app and an Express backend example (sessions, scoped credentials, server-side
-  result decision).
+- Example app and three backend examples: Express, AWS CDK with Lambda and DynamoDB, and
+  Cognito identity pools with a Flutter credentials snippet. All keep the decision on the
+  server and give the app credentials that can only stream a check.
 - Documentation: architecture, security, compatibility, platform parity, theming,
   localization, troubleshooting, manual test checklist and releasing.
 

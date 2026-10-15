@@ -169,8 +169,15 @@ session id, a malformed region or a non-positive timeout, and `StateError` if an
 `start` has not completed. Call `AwsLiveness.cancel()` to end the active attempt; the pending
 `start` completes with `LivenessCancelled(reason: LivenessCancelReason.app)`.
 
-A complete example lives in [`example/`](example), backed by
-[`examples/backend-express`](examples/backend-express).
+A complete example lives in [`example/`](example). Three backend examples show the
+server side; all of them keep the decision on the server and give the app credentials
+that can only stream a check:
+
+| Example | What it shows |
+|---|---|
+| [`examples/backend-express`](examples/backend-express) | Node.js + Express; the quickest way to try the example app locally |
+| [`examples/backend-lambda`](examples/backend-lambda) | AWS CDK: HTTP API, Lambda authorizer, three Lambdas, DynamoDB session binding, per-function least-privilege roles |
+| [`examples/cognito`](examples/cognito) | AWS CDK: Cognito user and identity pools, plus a Flutter snippet mapping `Amplify.Auth.fetchAuthSession()` to `credentialsProvider` |
 
 ## Results and errors
 

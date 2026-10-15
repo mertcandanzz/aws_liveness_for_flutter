@@ -72,7 +72,7 @@ them on the backend.
   memory.
 - **R8.** `consumer-rules.pro` keeps only the class names the error mapper reads.
 
-## The example backend
+## The example backends
 
 [`examples/backend-express`](../examples/backend-express) follows the rules above:
 
@@ -88,6 +88,18 @@ them on the backend.
 It is an example: in-memory state, one process, static bearer tokens, and results can be
 read more than once. Put your real user authentication, a database, a shared rate limiter
 and a consumed-result flag (rule 3) in place before production use.
+
+[`examples/backend-lambda`](../examples/backend-lambda) applies the same rules with
+production-shaped pieces: sessions bound to the caller in DynamoDB (10-minute TTL) and a
+final result handed out once through a conditional update; a Lambda authorizer that stores
+only SHA-256 digests of tokens (swap in a JWT authorizer for real users); HTTP API stage
+throttling; and one IAM role per function with only the actions it calls.
+
+[`examples/cognito`](../examples/cognito) gives signed-in users identity pool credentials
+whose role allows only `rekognition:StartFaceLivenessSession`. Those credentials last about
+an hour (the identity pool's enhanced flow), and session creation and results still go
+through a backend: the app never gets `CreateFaceLivenessSession` or
+`GetFaceLivenessSessionResults`.
 
 The example app enforces HTTPS for the backend in `BackendClient`: `http://` is accepted
 only for `localhost`, `127.0.0.1` and `::1` in debug builds, and redirects are never

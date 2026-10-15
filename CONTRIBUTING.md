@@ -14,7 +14,7 @@ Thanks for helping. Bug reports, fixes and documentation improvements are welcom
 - Flutter 3.38 or later (Dart 3.10).
 - Android: JDK 17 and the Android SDK.
 - iOS: a Mac with Xcode for builds. Without a Mac, see the Linux check below.
-- Node.js 20 or later for `examples/backend-express`.
+- Node.js 20.11 or later for the backend examples under `examples/`.
 
 ```sh
 flutter pub get
@@ -43,8 +43,10 @@ cd example && flutter test && flutter build apk --debug
 tool/ios_linux_check.sh
 SWIFT_IMAGE=swift:6.1-jammy tool/ios_linux_check.sh
 
-# Backend example
-cd examples/backend-express && npm ci && npm run lint && npm run typecheck && npm test
+# Backend examples (each of backend-express, backend-lambda and cognito)
+cd examples/<name> && npm ci && npm run lint && npm run typecheck && npm test
+# Cognito Flutter snippet
+cd examples/cognito/flutter_client && flutter pub get && flutter analyze && flutter test
 ```
 
 ## The channel contract

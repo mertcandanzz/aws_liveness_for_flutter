@@ -49,6 +49,9 @@ jobs:
       - name: Check CI gate arithmetic and failure cases
         run: python3 -m unittest discover -s .github/scripts -p 'test_*.py' -v
       - run: flutter pub get
+      - name: Resolve the nested snippet before repository-wide analysis
+        working-directory: examples/cognito/flutter_client
+        run: flutter pub get
       - run: dart format --output=none --set-exit-if-changed .
       - run: flutter analyze --fatal-infos
       - run: flutter test --coverage

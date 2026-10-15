@@ -49,8 +49,9 @@ class CredentialsConverterTest {
 
 class PluginCredentialsProviderTest {
     private val scheduler = FakeScheduler()
-    private val registry = SessionRegistry { it.run() }
-    private val attempt = assertNotNull(registry.begin(Any(), startRequest(attemptId = 3, credentialsTimeoutMillis = 2_000)) {})
+    private val engine = Any()
+    private val registry = SessionRegistry(FakeScheduler())
+    private val attempt = assertNotNull(registry.begin(engine, startRequest(attemptId = 3, credentialsTimeoutMillis = 2_000)) {})
     private var pendingReply: ((Result<CredentialsResultMessage>) -> Unit)? = null
     private val requestedAttempts = mutableListOf<Long>()
     private val successes = mutableListOf<AWSCredentials>()
@@ -121,6 +122,34 @@ class PluginCredentialsProviderTest {
         registry.finish(attempt, Outcomes.completed())
         fetch()
         assertTrue(requestedAttempts.isEmpty())
+        assertEquals(1, errors.size)
+    }
+
+    @Test
+    fun `a reply after the attempt finished hands over nothing`() {
+        fetch()
+        val reply = assertNotNull(pendingReply)
+        registry.finish(attempt, Outcomes.cancelled(CancelReasonMessage.USER))
+
+        reply(Result.success(CredentialsResultMessage(credentials())))
+
+        assertTrue(successes.isEmpty(), "credentials never reach a finished attempt")
+        assertEquals(1, errors.size, "the SDK request is released once")
+        assertTrue(scheduler.delayed.isEmpty(), "guard timer is cancelled")
+    }
+
+    @Test
+    fun `engine detach fails a pending request at once and ignores the late reply`() {
+        fetch()
+        val reply = assertNotNull(pendingReply)
+
+        registry.detachEngine(engine)
+        assertEquals(1, errors.size, "released without waiting for the guard timeout")
+        assertTrue(scheduler.delayed.isEmpty())
+
+        reply(Result.success(CredentialsResultMessage(credentials())))
+        scheduler.runDelayed()
+        assertTrue(successes.isEmpty())
         assertEquals(1, errors.size)
     }
 

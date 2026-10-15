@@ -138,6 +138,17 @@ describe('LivenessBackendStack', () => {
     });
   });
 
+  it('runs every function on the Node.js 22 Lambda runtime', () => {
+    const functions = template.findResources('AWS::Lambda::Function') as Record<
+      string,
+      { Properties: { Runtime: string } }
+    >;
+    const runtimes = new Set(Object.values(functions).map((f) => f.Properties.Runtime));
+
+    expect(Object.keys(functions)).toHaveLength(4);
+    expect([...runtimes]).toEqual(['nodejs22.x']);
+  });
+
   it('rejects plain tokens in place of digests', () => {
     expect(() => synth({ apiTokenSha256: ['my-plain-token'] })).toThrow(/SHA-256/);
   });

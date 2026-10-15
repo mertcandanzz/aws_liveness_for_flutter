@@ -1,12 +1,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools"
   package="io.github.mertcandanzz.aws_liveness_for_flutter">
 
   <uses-permission android:name="android.permission.CAMERA" />
 
-  <!-- The CAMERA permission implies a required camera; without these, Google Play would hide
-       the host app from devices without one. checkAvailability() reports noCamera instead. -->
+  <!-- The CAMERA permission implies a required camera, and com.amplifyframework.ui:liveness
+       declares android.hardware.camera.any without android:required (which means true, and
+       the manifest merger keeps true over false, hence tools:replace).
+       Without these, Google Play would hide the host app from devices without a camera;
+       checkAvailability() reports noCamera instead. The example app's
+       verify<Variant>CameraFeatures task checks the merged manifest. -->
   <uses-feature android:name="android.hardware.camera" android:required="false" />
   <uses-feature android:name="android.hardware.camera.front" android:required="false" />
+  <uses-feature
+    android:name="android.hardware.camera.any"
+    android:required="false"
+    tools:replace="android:required" />
 
   <application>
     <activity

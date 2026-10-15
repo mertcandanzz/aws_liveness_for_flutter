@@ -1,15 +1,32 @@
 # aws_liveness_for_flutter
 
-A new Flutter plugin project.
+Native [Amazon Rekognition Face Liveness](https://docs.aws.amazon.com/rekognition/latest/dg/face-liveness.html)
+for Flutter on iOS and Android, built on the official AWS Amplify Face Liveness SDKs.
+No WebView, no Cognito required.
 
-## Getting Started
+> **Unofficial.** Not affiliated with, endorsed or sponsored by Amazon Web Services.
+> See [NOTICE](NOTICE).
 
-This project is a starting point for a Flutter
-[plug-in package](https://flutter.dev/to/develop-plugins),
-a specialized package that includes platform-specific implementation code for
-Android and/or iOS.
+## Status
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Early development. The package is not published yet and has no public API.
+The design lives in `doc/design.md` once it lands.
 
+## What your app will need
+
+These requirements come from the underlying AWS SDKs and cannot be hidden by the plugin:
+
+- **A backend.** Your server calls Rekognition `CreateFaceLivenessSession`, hands the
+  `sessionId` to the app, and reads the verdict with `GetFaceLivenessSessionResults`.
+  The confidence score is only trusted server-side; the app never decides pass/fail.
+- **AWS credentials for the streaming call.** Short-lived credentials scoped to
+  `rekognition:StartFaceLivenessSession`, supplied by your app. Never ship long-lived keys.
+- **A supported region.** Face Liveness is not available in every AWS region
+  (for example `eu-west-1` has it, `eu-central-1` does not).
+- **Android:** `minSdk 24`.
+- **iOS:** iOS 15.0 or later, Swift Package Manager enabled, and an
+  `NSCameraUsageDescription` entry in your app's `Info.plist`.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).

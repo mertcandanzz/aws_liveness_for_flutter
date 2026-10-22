@@ -17,9 +17,9 @@
     "deploy": "cdk deploy"
   },
   "dependencies": {
-    "@aws-sdk/client-dynamodb": "^3.1152.0",
-    "@aws-sdk/client-rekognition": "^3.1152.0",
-    "@aws-sdk/client-sts": "^3.1152.0"
+    "@aws-sdk/client-dynamodb": "^3.1153.0",
+    "@aws-sdk/client-rekognition": "^3.1153.0",
+    "@aws-sdk/client-sts": "^3.1153.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
